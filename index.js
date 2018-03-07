@@ -103,10 +103,7 @@ var nameappend='';
     for(var srvc in services) {
     var service = services[srvc];
 		if (accessory.getService(service) == undefined) {
-		    if(device.type==43)
-		    {
-		     nameappend= " "+srvc+1;
-		    }
+		    
 			if(service == Service.Lightbulb){
 			this.log("	gotta light?");
 				accessory.addService(service, device.name+nameappend).addCharacteristic(Characteristic.Brightness);
@@ -123,7 +120,12 @@ var nameappend='';
 			
 			}
 			else if( service == Service.Switch){
-				accessory.addService(service, device.name+nameappend);
+                accessory.addService(service, device.name+nameappend);
+                if(device.type==43)
+                {
+                nameappend= " Switch 2";
+                accessory.addService(service, device.name+nameappend);
+                }
 			}
 		
 		}
@@ -195,7 +197,14 @@ AlmondAccessory.prototype.addEventHandlers = function (device) {
         servicecount++;
 
         service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
+        
+        if(this.device.type=='43'){
+            service = this.accessory.getService(device.name+" Switch 2");
 
+            if (service !== undefined){
+            service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState2.bind(this)).on('get', this.getSwitchState2.bind(this));
+            }
+        }
     }
     
     service = this.accessory.getService(Service.Lightbulb);
@@ -254,6 +263,24 @@ AlmondAccessory.prototype.addEventHandlers = function (device) {
 
 AlmondAccessory.prototype.getSwitchState = function(cb) {
     var state = this.device.getProp(this.device.props.SwitchBinary);
+    
+	if (typeof state === 'string') {
+	        if (state === 'true' || state === 'false'){
+			state= state == 'true';
+			}
+	}
+	state= +state;    
+this.log(
+        "Getting state for: %s and state is %s [%s]",
+        this.accessory.displayName,
+        state,
+        typeof state
+    );
+    cb(null, state);
+}
+
+AlmondAccessory.prototype.getSwitchState2 = function(cb) {
+    var state = this.device.getProp(this.device.props.SwitchBinary2);
     
 	if (typeof state === 'string') {
 	        if (state === 'true' || state === 'false'){
@@ -341,6 +368,14 @@ AlmondAccessory.prototype.setSwitchState = function(state, cb) {
     var value = (state | 0) ? true:false;
 
     this.device.setProp(this.device.props.SwitchBinary, value, function() {
+        if (cb) cb(null);
+    });
+}
+AlmondAccessory.prototype.setSwitchState2 = function(state, cb) {
+    this.log("Setting switch [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
+    var value = (state | 0) ? true:false;
+
+    this.device.setProp(this.device.props.SwitchBinary2, value, function() {
         if (cb) cb(null);
     });
 }
