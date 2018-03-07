@@ -5,7 +5,7 @@ Currently only support binary switches, with more coming later.
 # Installation
 
 1. Install homebridge using: `npm install -g homebridge`
-2. Install this plugin using: `npm install -g homebridge-almond`
+2. Install this plugin using: `npm install -g pablopoo/homebridge-almond`
 3. Update your configuration file. See the sample below.
 
 # Configuration
