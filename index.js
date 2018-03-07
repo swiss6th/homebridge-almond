@@ -174,10 +174,12 @@ function AlmondAccessory(log, accessory, device) {
   
     this.accessory.on('identify', function(paired, callback) {
         self.log("	%s - identify", self.accessory.displayName);
-        self.getSwitchState(function(err, state) {
-            self.setSwitchState(!state);
+        //removed since not all devices are switch.
+        //ToDo - Add support for all suported accesories
+        //self.getSwitchState(function(err, state) {
+        //    self.setSwitchState(!state);
             callback();
-        });
+        //});
     });
 
     this.observeDevice(device);
