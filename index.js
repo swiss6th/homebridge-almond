@@ -120,11 +120,11 @@ var nameappend='';
 			
 			}
 			else if( service == Service.Switch){
-                accessory.addService(service, device.name+nameappend);
+                accessory.addService(service, device.name+nameappend, device.name+nameappend);
                 if(device.type==43)
                 {
                 nameappend= " Switch 2";
-                accessory.addService(service, device.name+nameappend);
+                accessory.addService(service, device.name+nameappend, device.name+nameappend);
                 }
 			}
 		
@@ -201,7 +201,7 @@ AlmondAccessory.prototype.addEventHandlers = function (device) {
         service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
         
         if(this.device.type=='43'){
-            service = this.accessory.getService(device.name+" Switch 2");
+            service = this.accessory.getService(this.device.name+" Switch 2");
 
             if (service !== undefined){
             service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState2.bind(this)).on('get', this.getSwitchState2.bind(this));
