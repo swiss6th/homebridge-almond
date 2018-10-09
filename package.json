@@ -1,6 +1,6 @@
 {
   "name": "homebridge-almond",
-  "version": "0.1.3",
+  "version": "0.1.7",
   "description": "Homebridge platform plugin for Almond+",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,7 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pablopoo/homebridge-almond"
+    "url": "https://github.com/swiss6th/homebridge-almond"
   },
   "keywords": [
     "homebridge-plugin"

@@ -1,11 +1,9 @@
 Almond+ Platform plugin for the amazing [Homebridge](https://github.com/nfarina/homebridge) project.
 
-Currently only support binary switches, with more coming later.
-
 # Installation
 
 1. Install homebridge using: `npm install -g homebridge`
-2. Install this plugin using: `npm install -g pablopoo/homebridge-almond`
+2. Install this plugin using: `npm install -g swiss6th/homebridge-almond`
 3. Update your configuration file. See the sample below.
 
 # Configuration
@@ -29,7 +27,18 @@ Then add this to your homebridge config.json (updating the password).
     ]
 ```
 
+# Supported Sensors
+- Binary switches
+- Lightbulbs
+- Contact sensors
+- Smoke detectors
+- Thermostats (mostly)
+
+Not everything functions perfectly. More sensors will be added as time (and expertise) permits. 
+
 # Credits
 Credits to
-- Timon Reinhard as I based my Almond Client on his [work](https://github.com/timonreinhard/wemo-client).
-- The creators of the [WeMo homebridge platform](https://github.com/rudders/homebridge-platform-wemo) as this plugin is based on their work.
+- Pablo Poo, on whose fork this plugin is based
+- Thomas Purchas, the original creator of the plugin
+- Timon Reinhard, as Purchas based his Almond Client on Reinhard's [work](https://github.com/timonreinhard/wemo-client)
+- The creators of the [WeMo homebridge platform](https://github.com/rudders/homebridge-platform-wemo), as this plugin is based on their work

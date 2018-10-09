@@ -1,463 +1,763 @@
 "use strict";
 
 var Almond = require('almond-client'),
-    debug = require('debug')('homebridge-platform-almond');
+	debug = require('debug')('homebridge-platform-almond');
 
 var Accessory, Characteristic, Consumption, Service, TotalConsumption, UUIDGen;
 
 module.exports = function(homebridge) {
-    Accessory = homebridge.platformAccessory;
-    Characteristic = homebridge.hap.Characteristic;
-    Service = homebridge.hap.Service;
-    UUIDGen = homebridge.hap.uuid;
+	Accessory = homebridge.platformAccessory;
+	Characteristic = homebridge.hap.Characteristic;
+	Service = homebridge.hap.Service;
+	UUIDGen = homebridge.hap.uuid;
 
-    Consumption = function() {
-        Characteristic.call(this, 'Consumption', 'E863F10D-079E-48FF-8F27-9C2605A29F52');
+	Consumption = function() {
+		Characteristic.call(this, 'Consumption', 'E863F10D-079E-48FF-8F27-9C2605A29F52');
 
-        this.setProps({
-            format: Characteristic.Formats.UINT16,
-            unit: 'W',
-            perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
-        });
+		this.setProps({
+			format: Characteristic.Formats.UINT16,
+			unit: 'W',
+			perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
+		});
 
-        this.value = this.getDefaultValue();
-    };
-    require('util').inherits(Consumption, Characteristic);
+		this.value = this.getDefaultValue();
+	};
+	require('util').inherits(Consumption, Characteristic);
 
-    homebridge.registerPlatform("homebridge-almond", "Almond", AlmondPlatform, true);
+	homebridge.registerPlatform("homebridge-almond", "Almond", AlmondPlatform, true);
 }
 
 function AlmondPlatform(log, config, api) {
-    var platform = this;
-    this.log = log;
-    this.config = config;
-    this.api = api;
+	var platform = this;
+	this.log = log;
+	this.config = config;
+	this.api = api;
 
-    this.accessories = [];
+	this.accessories = [];
 
-    this.log("Starting up, config:", config);
+	this.log("Starting up, config:", config);
 
-    this.api.on('didFinishLaunching', function() {
-        platform.client = new Almond(platform.config);
+	this.api.on('didFinishLaunching', function() {
+		platform.client = new Almond(platform.config);
 
-        platform.client.on("ready", function() {
-            platform.client.getDevices().forEach(platform.addAccessory.bind(platform));
-            platform._pruneAccessories();
-        });
-    });
+		platform.client.on("ready", function() {
+			platform.client.getDevices().forEach(platform.addAccessory.bind(platform));
+			platform._pruneAccessories();
+		});
+	});
 }
 
 AlmondPlatform.prototype.addAccessory = function(device) {
-    var platform = this;
-    var services = [];
-    this.log("Got device. Name:%s, ID:[%s], Type:%s", device.name, device.id, device.type)
+	var platform = this;
+	var services = [];
+	this.log("Got device. Name:%s, ID:[%s], Type:%s", device.name, device.id, device.type)
 
-	if(device.props === undefined){
-		this.log("	Device not supported.");
+	if (device.props === undefined) {
+		this.log("Device not supported.");
 		return;
 	}
-	
-	switch(device.type){
-	case '4':
-		/*LightBulb with dimmer*/
-		this.log("	+Service.Lightbulb");
-    	services.push(Service.Lightbulb);
-		break;
-	case '13':
-		/*Fire sensor*/
-		this.log("	+Service.SmokeSensor");
-		services.push(Service.SmokeSensor);
-		break;
-	case '12':
-		/*Contact sensor*/
-		this.log("	+Service.ContactSensor");
-		services.push(Service.ContactSensor);
-		/*ToDo: test for temperature sensor service*/
-		break;
-	default:
-		this.log("	+Service.SwitchBinary");
-		if (device.props.SwitchBinary !== undefined) {
-    	/*Fallback to Switch*/
-        services.push(Service.Switch);
-    	}
+
+	switch (device.type) {
+		case '4':
+			/*LightBulb with dimmer*/
+			this.log("+Service.Lightbulb");
+			services.push(Service.Lightbulb);
+			break;
+		case '13':
+			/*Fire sensor*/
+			this.log("+Service.SmokeSensor");
+			services.push(Service.SmokeSensor);
+			break;
+		case '12':
+			/*Contact sensor*/
+			this.log("+Service.ContactSensor");
+			services.push(Service.ContactSensor);
+			/*ToDo: test for temperature sensor service*/
+			break;
+		case '7':
+			/*Thermostat*/
+			this.log("+Service.Thermostat");
+			services.push(Service.Thermostat);
+			break;
+		default:
+			this.log("+Service.SwitchBinary");
+			if (device.props.SwitchBinary !== undefined) {
+				/*Fallback to Switch*/
+				services.push(Service.Switch);
+			}
 	}
-    
 
-    if (services.length === 0) {
-        this.log("	No services supported: %s [%s]", device.name, device.type);
-        return;
-    }
+	if (services.length === 0) {
+		this.log("No services supported: %s [%s]", device.name, device.type);
+		return;
+	}
 
-    this.log("	Found %s services.", services.length);
+	this.log("Found %s services.", services.length);
 
-    var uuid = UUIDGen.generate('AlmondDevice: '.concat(device.id));
+	var uuid = UUIDGen.generate('AlmondDevice: '.concat(device.id));
 
-    var accessory = this.accessories[uuid];
-    if (accessory === undefined) {
-        var accessory = new Accessory(device.name, uuid);
-        this.api.registerPlatformAccessories("homebridge-platform-almond", "Almond", [accessory]);
-    }
-    
-   
-var nameappend='';
-    for(var srvc in services) {
-    var service = services[srvc];
+	var accessory = this.accessories[uuid];
+	if (accessory === undefined) {
+		var accessory = new Accessory(device.name, uuid);
+		this.api.registerPlatformAccessories("homebridge-platform-almond", "Almond", [accessory]);
+	}
+
+
+	var nameappend = '';
+	for (var srvc in services) {
+		var service = services[srvc];
 		if (accessory.getService(service) == undefined) {
-		    
-			if(service == Service.Lightbulb){
-			this.log("	gotta light?");
-				accessory.addService(service, device.name+nameappend).addCharacteristic(Characteristic.Brightness);
-			}else if(service == Service.SmokeSensor)
-			{
-				var sv= accessory.addService(service, device.name+nameappend)
-					sv.addCharacteristic(Characteristic.StatusLowBattery);
-					sv.addCharacteristic(Characteristic.StatusTampered);
-			}else if(service == Service.ContactSensor)
-			{
-				var sv= accessory.addService(service, device.name+nameappend)
-					sv.addCharacteristic(Characteristic.StatusLowBattery);
-					sv.addCharacteristic(Characteristic.StatusTampered);
-			
-			}
-			else if( service == Service.Switch){
-                accessory.addService(service, device.name+nameappend, device.name+nameappend);
-                if(device.type==43)
-                {
-                nameappend= " Switch 2";
-                accessory.addService(service, device.name+nameappend, device.name+nameappend);
-                }
-			}
-		
-		}
-    }
 
-    this.accessories[accessory.UUID] = new AlmondAccessory(this.log, accessory, device);
+			if (service == Service.Lightbulb) {
+				this.log("gotta light?");
+				accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.Brightness);
+			} else if (service == Service.SmokeSensor) {
+				var sv = accessory.addService(service, device.name + nameappend)
+				sv.addCharacteristic(Characteristic.StatusLowBattery);
+				sv.addCharacteristic(Characteristic.StatusTampered);
+			} else if (service == Service.ContactSensor) {
+				var sv = accessory.addService(service, device.name + nameappend)
+				sv.addCharacteristic(Characteristic.StatusLowBattery);
+				sv.addCharacteristic(Characteristic.StatusTampered);
+			} else if (service == Service.Switch) {
+				accessory.addService(service, device.name + nameappend, device.name + nameappend);
+				if (device.type == '43') {
+					nameappend = " Switch 2";
+					accessory.addService(service, device.name + nameappend, device.name + nameappend);
+				}
+			} else if (service == Service.Thermostat) {
+				var sv = accessory.addService(service, device.name + nameappend)
+				sv.addCharacteristic(Characteristic.CurrentRelativeHumidity);
+				sv.addCharacteristic(Characteristic.CoolingThresholdTemperature);
+				sv.addCharacteristic(Characteristic.HeatingThresholdTemperature);
+				accessory.addService(Service.Fan, device.name + " Fan" + nameappend);
+			}
+
+		}
+	}
+
+	this.accessories[accessory.UUID] = new AlmondAccessory(this.log, accessory, device);
 }
 
 AlmondPlatform.prototype.configureAccessory = function(accessory) {
-    this.log("Configuring Accessory from cache: %s [%s]", accessory.UUID, accessory.displayName);
-    accessory.updateReachability(true);
-    this.accessories[accessory.UUID] = accessory;
+	this.log("Configuring Accessory from cache: %s [%s]", accessory.UUID, accessory.displayName);
+	accessory.updateReachability(true);
+	this.accessories[accessory.UUID] = accessory;
 }
 
 AlmondPlatform.prototype._pruneAccessories = function() {
-    // After we have got all the devices from the Almond, check to see if we have any dead
-    // cached devices and kill them.
-    for(var key in this.accessories) {
-        var accessory = this.accessories[key];
-        this.log("Checking existance of %s:", accessory.displayName);
-        if (!(accessory instanceof AlmondAccessory)) {
-            this.log("	(-)Did not find device for accessory %s so removing it.", accessory.displayName);
-            this.api.unregisterPlatformAccessories("homebridge-platform-almond", "Almond", [accessory]);
-            delete this.accessories[key];
-        }else{
-        this.log("	(+)Device exist.");
-        }
-    }
+	// After we have got all the devices from the Almond, check to see if we have any dead
+	// cached devices and kill them.
+	for (var key in this.accessories) {
+		var accessory = this.accessories[key];
+		this.log("Checking existance of %s:", accessory.displayName);
+		if (!(accessory instanceof AlmondAccessory)) {
+			this.log("(-)Did not find device for accessory %s so removing it.", accessory.displayName);
+			this.api.unregisterPlatformAccessories("homebridge-platform-almond", "Almond", [accessory]);
+			delete this.accessories[key];
+		} else {
+			this.log("(+)Device exist.");
+		}
+	}
 }
 
 function AlmondAccessory(log, accessory, device) {
-    var self = this;
-    this.accessory = accessory;
-    this.device = device;
-    this.log = log;
+	var self = this;
+	this.accessory = accessory;
+	this.device = device;
+	this.log = log;
 
-    this.displayName = this.accessory.displayName;
+	this.displayName = this.accessory.displayName;
 
-    this.log("	Setting up: %s", accessory.displayName);
-    
-    this.updateReachability(true);
+	this.log("Setting up: %s", accessory.displayName);
 
-    this.accessory.getService(Service.AccessoryInformation)
-        .setCharacteristic(Characteristic.Manufacturer, device.manufacturer)
-        .setCharacteristic(Characteristic.Model, device.model);
-  
-    this.accessory.on('identify', function(paired, callback) {
-        self.log("	%s - identify", self.accessory.displayName);
-        //removed since not all devices are switch.
-        //ToDo - Add support for all suported accesories
-        //self.getSwitchState(function(err, state) {
-        //    self.setSwitchState(!state);
-            callback();
-        //});
-    });
+	this.updateReachability(true);
 
-    this.observeDevice(device);
-    this.addEventHandlers();
+	this.accessory.getService(Service.AccessoryInformation)
+		.setCharacteristic(Characteristic.Manufacturer, device.manufacturer)
+		.setCharacteristic(Characteristic.Model, device.model);
+
+	this.accessory.on('identify', function(paired, callback) {
+		self.log("%s - identify", self.accessory.displayName);
+		//removed since not all devices are switch.
+		//ToDo - Add support for all suported accesories
+		//self.getSwitchState(function(err, state) {
+		//    self.setSwitchState(!state);
+		callback();
+		//});
+	});
+
+	this.observeDevice(device);
+	this.addEventHandlers();
 }
 
 AlmondAccessory.prototype.observeDevice = function(device) {
 
 }
 
-AlmondAccessory.prototype.addEventHandlers = function (device) {
-    var self = this;
-    var servicecount = 0;
+AlmondAccessory.prototype.addEventHandlers = function(device) {
+	var self = this;
+	var servicecount = 0;
 
-    var service = this.accessory.getService(Service.Switch);
-    if (service !== undefined) {
-        servicecount++;
+	var service = this.accessory.getService(Service.Switch);
+	if (service !== undefined) {
+		servicecount++;
 
-        service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
-        
-        if(this.device.type=='43'){
-            service = this.accessory.getService(this.device.name+" Switch 2");
+		service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
 
-            if (service !== undefined){
-            service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState2.bind(this)).on('get', this.getSwitchState2.bind(this));
-            }
-        }
-    }
-    
-    service = this.accessory.getService(Service.Lightbulb);
-    if (service !== undefined) {
-        servicecount++;
+		if (this.device.type == '43') {
+			service = this.accessory.getService(this.device.name + " Switch 2");
 
-        service.getCharacteristic(Characteristic.Brightness).on('set', this.setBrightness.bind(this)).on('get', this.getBrightness.bind(this));
-        service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
-    }
+			if (service !== undefined) {
+				service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState2.bind(this)).on('get', this.getSwitchState2.bind(this));
+			}
+		}
+	}
 
-    service = this.accessory.getService(Service.SmokeSensor);
-    if (service !== undefined) {
-        servicecount++;
+	service = this.accessory.getService(Service.Lightbulb);
+	if (service !== undefined) {
+		servicecount++;
 
-        service.getCharacteristic(Characteristic.SmokeDetected).on('get', this.getStateState.bind(this));
-        service.getCharacteristic(Characteristic.StatusTampered).on('get', this.getTamperState.bind(this));
-        service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getLowBatteryState.bind(this));
-    }
-    
-    service = this.accessory.getService(Service.ContactSensor);
-    if (service !== undefined) {
-        servicecount++;
+		service.getCharacteristic(Characteristic.Brightness).on('set', this.setBrightness.bind(this)).on('get', this.getBrightness.bind(this));
+		service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
+	}
 
-        service.getCharacteristic(Characteristic.ContactSensorState).on('get', this.getStateState.bind(this));
-        service.getCharacteristic(Characteristic.StatusTampered).on('get', this.getTamperState.bind(this));
-        service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getLowBatteryState.bind(this));
-    }
+	service = this.accessory.getService(Service.SmokeSensor);
+	if (service !== undefined) {
+		servicecount++;
+
+		service.getCharacteristic(Characteristic.SmokeDetected).on('get', this.getStateState.bind(this));
+		service.getCharacteristic(Characteristic.StatusTampered).on('get', this.getTamperState.bind(this));
+		service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getLowBatteryState.bind(this));
+	}
+
+	service = this.accessory.getService(Service.ContactSensor);
+	if (service !== undefined) {
+		servicecount++;
+
+		service.getCharacteristic(Characteristic.ContactSensorState).on('get', this.getStateState.bind(this));
+		service.getCharacteristic(Characteristic.StatusTampered).on('get', this.getTamperState.bind(this));
+		service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getLowBatteryState.bind(this));
+	}
+
+	service = this.accessory.getService(Service.Thermostat);
+	if (service !== undefined) {
+		servicecount++;
+		
+		service.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+			.on('get', this.getCurrentHeatingCoolingState.bind(this));
+		service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
+			.on('get', this.getTargetHeatingCoolingState.bind(this))
+			.on('set', this.setTargetHeatingCoolingState.bind(this));
+		service.getCharacteristic(Characteristic.CurrentTemperature)
+			.on('get', this.getCurrentTemperature.bind(this));
+		service.getCharacteristic(Characteristic.TargetTemperature)
+			.on('get', this.getTargetTemperature.bind(this))
+			.on('set', this.setTargetTemperature.bind(this));
+		service.getCharacteristic(Characteristic.TemperatureDisplayUnits)
+			.on('get', this.getTemperatureDisplayUnits.bind(this))
+			.on('set', this.setTemperatureDisplayUnits.bind(this));
+		service.getCharacteristic(Characteristic.CurrentRelativeHumidity)
+			.on('get', this.getCurrentRelativeHumidity.bind(this));
+		service.getCharacteristic(Characteristic.CoolingThresholdTemperature)
+			.on('get', this.getCoolingThresholdTemperature.bind(this))
+			.on('set', this.setCoolingThresholdTemperature.bind(this));
+		service.getCharacteristic(Characteristic.HeatingThresholdTemperature)
+			.on('get', this.getHeatingThresholdTemperature.bind(this))
+			.on('set', this.setHeatingThresholdTemperature.bind(this));
+	}
+
+	service = this.accessory.getService(Service.Fan);
+	if (service !== undefined) {
+		servicecount++;
+
+		// Thermostat fan mode control
+		if (this.device.type == '7') {
+			service.getCharacteristic(Characteristic.On).on('set', this.setThermostatFanMode.bind(this)).on('get', this.getThermostatFanMode.bind(this));
+		}
+	}
 
 
-    if (servicecount > 0) {
+	if (servicecount > 0) {
 
-        this.device.on('valueUpdated', function (prop, value) {
-            self.log("Value updated: prop:%s -> value:%s id:[%s]", prop, value, this.id);
-            if (this.props.SwitchBinary == prop || this.props.State == prop || this.props.Tamper == prop || this.props.LowBattery == prop) {
-            	if (typeof value === 'string')
-            	{
-                	if (value === 'true' || value === 'false')
-                        {
-                        	value = value == 'true';
-                        	value = (value | 0) ? true : false;
-                        }
-                
-                }
+		this.device.on('valueUpdated', function(prop, value) {
+			self.log("Value updated: prop:%s -> value:%s id:[%s]", prop, value, this.id);
+			if (this.props.SwitchBinary == prop || this.props.State == prop || this.props.Tamper == prop || this.props.LowBattery == prop) {
+				if (typeof value === 'string') {
+					if (value === 'true' || value === 'false') {
+						value = value == 'true';
+						value = (value | 0) ? true : false; // Isn't this redundant?
+					}
 
-                self.updateBoolState(value, prop);
-            }
+				}
 
-            if (this.props.SwitchMultilevel == prop) {
-                value = Math.round(value * 100 / 255);
-                self.updateBrightnessState(value);
-            }
-        })
-    }
+				self.updateBoolState(value, prop);
+			}
+
+			if (this.props.SwitchMultilevel == prop) {
+				value = Math.round(value * 100 / 255);
+				self.updateBrightnessState(value);
+			}
+		})
+	}
 }
 
 
 AlmondAccessory.prototype.getSwitchState = function(cb) {
-    var state = this.device.getProp(this.device.props.SwitchBinary);
-    
+	var state = this.device.getProp(this.device.props.SwitchBinary);
+
 	if (typeof state === 'string') {
-	        if (state === 'true' || state === 'false'){
-			state= state == 'true';
-			}
+		if (state === 'true' || state === 'false') {
+			state = state == 'true';
+		}
 	}
-	state= +state;    
-this.log(
-        "Getting state for: %s and state is %s [%s]",
-        this.accessory.displayName,
-        state,
-        typeof state
-    );
-    cb(null, state);
+	state = +state;
+	this.log(
+		"Getting state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, state);
 }
 
 AlmondAccessory.prototype.getSwitchState2 = function(cb) {
-    var state = this.device.getProp(this.device.props.SwitchBinary2);
-    
+	var state = this.device.getProp(this.device.props.SwitchBinary2);
+
 	if (typeof state === 'string') {
-	        if (state === 'true' || state === 'false'){
-			state= state == 'true';
-			}
+		if (state === 'true' || state === 'false') {
+			state = state == 'true';
+		}
 	}
-	state= +state;    
-this.log(
-        "Getting state for: %s and state is %s [%s]",
-        this.accessory.displayName,
-        state,
-        typeof state
-    );
-    cb(null, state);
+	state = +state;
+	this.log(
+		"Getting state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, state);
 }
 
 AlmondAccessory.prototype.getBrightness = function(cb) {
-    var state = this.device.getProp(this.device.props.SwitchMultilevel);
-    state= Math.round(state * 100 / 255 );
-     
+	var state = this.device.getProp(this.device.props.SwitchMultilevel);
+	state = Math.round(state * 100 / 255);
+
 	this.log(
-        "Getting brightness state for: %s and state is %s [%s]",
-        this.accessory.displayName,
-        state,
-        typeof state
-    );
-    cb(null, state);
+		"Getting brightness state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, state);
 }
 
 AlmondAccessory.prototype.getStateState = function(cb) {
-    var state = this.device.getProp(this.device.props.State);
+	var state = this.device.getProp(this.device.props.State);
 	if (typeof state === 'string') {
-	        if (state === 'true' || state === 'false'){
-			state= state == 'true';
-			}
+		if (state === 'true' || state === 'false') {
+			state = state == 'true';
+		}
 	}
-	state= +state;    
-this.log(
-        "Getting state for: %s and state is %s [%s]",
-        this.accessory.displayName,
-        state,
-        typeof state
-    );
-    cb(null, state);
+	state = +state;
+	this.log(
+		"Getting state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, state);
 }
 
 AlmondAccessory.prototype.getTamperState = function(cb) {
-    var state = this.device.getProp(this.device.props.Tamper);
-    
+	var state = this.device.getProp(this.device.props.Tamper);
+
 	if (typeof state === 'string') {
-	        if (state === 'true' || state === 'false'){
-			state= state == 'true';
-			}
+		if (state === 'true' || state === 'false') {
+			state = state == 'true';
+		}
 	}
-	state= +state;    
-this.log(
-        "Getting tamper state for: %s and state is %s [%s]",
-        this.accessory.displayName,
-        state,
-        typeof state
-    );
-    cb(null, state);
+	state = +state;
+	this.log(
+		"Getting tamper state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, state);
 }
 
 AlmondAccessory.prototype.getLowBatteryState = function(cb) {
-    var state = this.device.getProp(this.device.props.LowBattery);
+	var state = this.device.getProp(this.device.props.LowBattery);
 	if (typeof state === 'string') {
-	        if (state === 'true' || state === 'false'){
-			state= state == 'true';
-			}
+		if (state === 'true' || state === 'false') {
+			state = state == 'true';
+		}
 	}
-	state= +state;    
-this.log(
-        "Getting LowBattery state for: %s and state is %s [%s]",
-        this.accessory.displayName,
-        state,
-        typeof state
-    );
-    cb(null, state);
+	state = +state;
+	this.log(
+		"Getting LowBattery state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, state);
 }
 
 
 AlmondAccessory.prototype.setSwitchState = function(state, cb) {
-    this.log("Setting switch [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
-    var value = (state | 0) ? true:false;
+	this.log("Setting switch [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
+	var value = (state | 0) ? true : false;
 
-    this.device.setProp(this.device.props.SwitchBinary, value, function() {
-        if (cb) cb(null);
-    });
+	this.device.setProp(this.device.props.SwitchBinary, value, function() {
+		if (cb) cb(null);
+	});
 }
 AlmondAccessory.prototype.setSwitchState2 = function(state, cb) {
-    this.log("Setting switch [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
-    var value = (state | 0) ? true:false;
+	this.log("Setting switch [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
+	var value = (state | 0) ? true : false;
 
-    this.device.setProp(this.device.props.SwitchBinary2, value, function() {
-        if (cb) cb(null);
-    });
+	this.device.setProp(this.device.props.SwitchBinary2, value, function() {
+		if (cb) cb(null);
+	});
 }
 
 AlmondAccessory.prototype.setBrightness = function(state, cb) {
-    this.log("Setting brightness [%s] to: %s - %s % [%s]", this.accessory.displayName, state * 255 / 100, state, typeof state);
-   // var value = (state | 0) ? true:false;
+	this.log("Setting brightness [%s] to: %s - %s % [%s]", this.accessory.displayName, state * 255 / 100, state, typeof state);
+	// var value = (state | 0) ? true:false;
 
-    this.device.setProp(this.device.props.SwitchMultilevel, state * 255 / 100, function() {
-       if (cb) cb(null);
-    });
+	this.device.setProp(this.device.props.SwitchMultilevel, state * 255 / 100, function() {
+		if (cb) cb(null);
+	});
 }
 
 AlmondAccessory.prototype.updateBoolState = function(value, prop) {
 
-   prop=parseInt(prop, 10);
- 
-   if(this.device.type=='4'){
-   
-   		this.log("	Updating Light bulb State to: %s [%s]", value, typeof value);
-   		service = this.accessory.getService(Service.Lightbulb);
-    	service.getCharacteristic(Characteristic.On).updateValue(value);
-    		
-   }else if(this.device.type=='13'){
+	prop = parseInt(prop, 10);
+
+	if (this.device.type == '4') {
+
+		this.log("Updating Light bulb State to: %s [%s]", value, typeof value);
+		service = this.accessory.getService(Service.Lightbulb);
+		service.getCharacteristic(Characteristic.On).updateValue(value);
+
+	} else if (this.device.type == '13') {
 
 		service = this.accessory.getService(Service.SmokeSensor);
- 	
-   		switch(prop){
 
-   			case this.device.props.State:
-   				this.log("	Updating SmokeSensor state to: %s [%s]", value, typeof value);
-   				service.getCharacteristic(Characteristic.SmokeDetected).updateValue(value ?  Characteristic.SmokeDetected.SMOKE_DETECTED: Characteristic.SmokeDetected.SMOKE_NOT_DETECTED);
-    			break;
-    		case this.device.props.Tamper:
-    			this.log("	Updating SmokeSensor tampered to: %s [%s]", value, typeof value);
-    			service.getCharacteristic(Characteristic.StatusTampered).updateValue(value ?  Characteristic.StatusTampered.TAMPERED: Characteristic.StatusTampered.NOT_TAMPERED);
-    			break;
-    		case this.device.props.LowBattery:
-    			this.log("	Updating SmokeSensor low battery to: %s [%s]", value, typeof value);
-    			service.getCharacteristic(Characteristic.StatusLowBattery).updateValue(value ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
-    			break;
-    		
-   		}
-   }else if(this.device.type=='12')
-   {
-   		service = this.accessory.getService(Service.ContactSensor);
-   		switch(prop){
+		switch (prop) {
 
-   			case this.device.props.State:
-   				this.log("	Updating ContactSensor state to: %s [%s]", value, typeof value);
-   				service.getCharacteristic(Characteristic.ContactSensorState).updateValue(value ?  Characteristic.ContactSensorState.CONTACT_NOT_DETECTED: Characteristic.ContactSensorState.CONTACT_DETECTED);
-    			break;
-    		case this.device.props.Tamper:
-    			this.log("	Updating ContactSensor tampered to: %s [%s]", value, typeof value);
-    			service.getCharacteristic(Characteristic.StatusTampered).updateValue(value ?  Characteristic.StatusTampered.TAMPERED: Characteristic.StatusTampered.NOT_TAMPERED);
-    			break;
-    		case this.device.props.LowBattery:
-    			this.log("	Updating ContactSensor low battery to: %s [%s]", value, typeof value ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
-    			service.getCharacteristic(Characteristic.StatusLowBattery).updateValue(value);
-    			break;
-    		
-   		}
-   		//test for temperature service
-   }
-   else
-   {
-   		this.log("	Updating Switch State to: %s [%s]", value, typeof value);
-    	var service = this.accessory.getService(Service.Switch);
-    	service.getCharacteristic(Characteristic.On).updateValue(value);
+			case this.device.props.State:
+				this.log("Updating SmokeSensor state to: %s [%s]", value, typeof value);
+				service.getCharacteristic(Characteristic.SmokeDetected).updateValue(value ? Characteristic.SmokeDetected.SMOKE_DETECTED : Characteristic.SmokeDetected.SMOKE_NOT_DETECTED);
+				break;
+			case this.device.props.Tamper:
+				this.log("Updating SmokeSensor tampered to: %s [%s]", value, typeof value);
+				service.getCharacteristic(Characteristic.StatusTampered).updateValue(value ? Characteristic.StatusTampered.TAMPERED : Characteristic.StatusTampered.NOT_TAMPERED);
+				break;
+			case this.device.props.LowBattery:
+				this.log("Updating SmokeSensor low battery to: %s [%s]", value, typeof value);
+				service.getCharacteristic(Characteristic.StatusLowBattery).updateValue(value ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
+				break;
+
+		}
+	} else if (this.device.type == '12') {
+		service = this.accessory.getService(Service.ContactSensor);
+		switch (prop) {
+
+			case this.device.props.State:
+				this.log("Updating ContactSensor state to: %s [%s]", value, typeof value);
+				service.getCharacteristic(Characteristic.ContactSensorState).updateValue(value ? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED : Characteristic.ContactSensorState.CONTACT_DETECTED);
+				break;
+			case this.device.props.Tamper:
+				this.log("Updating ContactSensor tampered to: %s [%s]", value, typeof value);
+				service.getCharacteristic(Characteristic.StatusTampered).updateValue(value ? Characteristic.StatusTampered.TAMPERED : Characteristic.StatusTampered.NOT_TAMPERED);
+				break;
+			case this.device.props.LowBattery:
+				this.log("Updating ContactSensor low battery to: %s [%s]", value, typeof value ? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL);
+				service.getCharacteristic(Characteristic.StatusLowBattery).updateValue(value);
+				break;
+
+		}
+		//test for temperature service
+	} else {
+		this.log("Updating Switch State to: %s [%s]", value, typeof value);
+		var service = this.accessory.getService(Service.Switch);
+		service.getCharacteristic(Characteristic.On).updateValue(value);
 	}
 
 }
 
 AlmondAccessory.prototype.updateBrightnessState = function(value) {
-    this.log("	Updating Brightness State to: %s [%s]", value, typeof value);
+	this.log("Updating Brightness State to: %s [%s]", value, typeof value);
 
-    var service = this.accessory.getService(Service.Lightbulb);
-    service.getCharacteristic(Characteristic.Brightness).updateValue(value);
+	var service = this.accessory.getService(Service.Lightbulb);
+	service.getCharacteristic(Characteristic.Brightness).updateValue(value);
 }
 
+AlmondAccessory.prototype.getCurrentHeatingCoolingState = function(cb) {
+	var state = this.device.getProp(this.device.props.OperatingState);
+
+	var states = {
+		"Idle": Characteristic.CurrentHeatingCoolingState.OFF,
+		"Heating": Characteristic.CurrentHeatingCoolingState.HEAT,
+		"Cooling": Characteristic.CurrentHeatingCoolingState.COOL
+	}
+
+	this.log(
+		"Getting operating state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, states[state]);
+}
+
+AlmondAccessory.prototype.getTargetHeatingCoolingState = function(cb) {
+	var state = this.device.getProp(this.device.props.Mode);
+
+	var states = {
+		"Off": Characteristic.TargetHeatingCoolingState.OFF,
+		"Heat": Characteristic.TargetHeatingCoolingState.HEAT,
+		"Cool": Characteristic.TargetHeatingCoolingState.COOL,
+		"Auto": Characteristic.TargetHeatingCoolingState.AUTO
+	}
+
+	this.log(
+		"Getting operating mode for: %s and mode is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, states[state]);
+}
+
+AlmondAccessory.prototype.setTargetHeatingCoolingState = function(state, cb) {
+	this.log("Setting operating mode [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
+	// var value = (state | 0) ? true:false;
+
+	var states = [];
+	states[Characteristic.TargetHeatingCoolingState.OFF] = "Off";
+	states[Characteristic.TargetHeatingCoolingState.HEAT] = "Heat";
+	states[Characteristic.TargetHeatingCoolingState.COOL] = "Cool";
+	states[Characteristic.TargetHeatingCoolingState.AUTO] = "Auto";
+
+	this.device.setProp(this.device.props.Mode, states[state], function() {
+		if (cb) cb(null);
+	});
+}
+
+AlmondAccessory.prototype.getCurrentTemperature = function(cb) {
+	var units = this.device.getProp(this.device.props.Units);
+	var temperature = Number(this.device.getProp(this.device.props.Temperature));
+	if (units == "F") {
+		temperature = (temperature - 32) / 1.8;
+	}
+	temperature = temperature.toFixed(1);
+
+	this.log(
+		"Getting current temperature for: %s and temperature is %f degrees C [%s]",
+		this.accessory.displayName,
+		temperature,
+		typeof temperature
+	);
+	cb(null, temperature);
+}
+
+AlmondAccessory.prototype.getTargetTemperature = function(cb) {
+	var units = this.device.getProp(this.device.props.Units);
+	var mode = this.device.getProp(this.device.props.Mode);
+	var targetTemperature = 0;
+	if (mode == "Heat") {
+		targetTemperature = Number(this.device.getProp(this.device.props.SetpointHeating));
+	} else if (mode == "Cool") {
+		targetTemperature = Number(this.device.getProp(this.device.props.SetpointCooling));
+	} else if (mode == "Auto" || mode == "Off") {
+		// This is bogus, but we have to give an answer
+		let heatingTemperature = Number(this.device.getProp(this.device.props.SetpointHeating));
+		let coolingTemperature = Number(this.device.getProp(this.device.props.SetpointCooling));
+		targetTemperature = Number((heatingTemperature + coolingTemperature) / 2).toFixed(1);
+	}
+	if (units == "F") {
+		targetTemperature = (targetTemperature - 32) / 1.8;
+	}
+	targetTemperature = targetTemperature.toFixed(1);
+
+	this.log(
+		"Getting current target temperature for: %s and temperature is %f degrees C [%s]",
+		this.accessory.displayName,
+		targetTemperature,
+		typeof targetTemperature
+	);
+	cb(null, targetTemperature);
+}
+
+AlmondAccessory.prototype.setTargetTemperature = function(temperature, cb) {
+	this.log("Setting target temperature [%s] to: %f degrees C [%s]", this.accessory.displayName, temperature, typeof temperature);
+
+	var units = this.device.getProp(this.device.props.Units);
+	var mode = this.device.getProp(this.device.props.Mode);
+	var targetTemperature = temperature;
+	if (units == "F") {
+		targetTemperature = targetTemperature * 1.8 + 32;
+		// Not sure if this 0.5-degree rounding is necessary
+		targetTemperature = Number(Math.round(targetTemperature * 2) / 2).toString();
+	}
+	if (mode == "Heat") {
+		this.device.setProp(this.device.props.SetpointHeating, targetTemperature, function() {
+			if (cb) cb(null);
+		});
+	} else if (mode == "Cool") {
+		this.device.setProp(this.device.props.SetpointCooling, targetTemperature, function() {
+			if (cb) cb(null);
+		});
+	} else {
+		cb(null);
+	}
+}
+
+AlmondAccessory.prototype.getTemperatureDisplayUnits = function(cb) {
+	var units = this.device.getProp(this.device.props.Units);
+
+	var unitTypes = {
+		"C": Characteristic.TemperatureDisplayUnits.CELSIUS,
+		"F": Characteristic.TemperatureDisplayUnits.FAHRENHEIT
+	}
+
+	this.log(
+		"Getting temperature display units for: %s and units are %s [%s]",
+		this.accessory.displayName,
+		units,
+		typeof units
+	);
+	cb(null, unitTypes[units]);
+}
+
+AlmondAccessory.prototype.setTemperatureDisplayUnits = function(units, cb) {
+	var unitTypes = [];
+	unitTypes[Characteristic.TemperatureDisplayUnits.CELSIUS] = "C";
+	unitTypes[Characteristic.TemperatureDisplayUnits.FAHRENHEIT] = "F";
+
+	this.log("Setting temperature display units [%s] to: %s [%s]", this.accessory.displayName, unitTypes[units], typeof unitTypes[units]);
+
+	// Just run the callback with no error; Almond+ doesn't allow this to be set
+	cb(null);
+
+//	this.device.setProp(this.device.props.Units, unitTypes[units], function() {
+//		if (cb) cb(null);
+//	});
+}
+
+AlmondAccessory.prototype.getCurrentRelativeHumidity = function(cb) {
+	var humidity = this.device.getProp(this.device.props.Humidity);
+	humidity = Math.round(Number(humidity));
+	this.log(
+		"Getting current relative humidity for: %s and humidity is %i % [%s]",
+		this.accessory.displayName,
+		humidity,
+		typeof humidity
+	);
+	cb(null, humidity);
+}
+
+AlmondAccessory.prototype.getCoolingThresholdTemperature = function(cb) {
+	var units = this.device.getProp(this.device.props.Units);
+	var coolingTemperature = Number(this.device.getProp(this.device.props.SetpointCooling));
+	if (units == "F") {
+		coolingTemperature = (coolingTemperature - 32) / 1.8;
+	}
+	coolingTemperature = coolingTemperature.toFixed(1);
+
+	this.log(
+		"Getting current cooling temperature threshold for: %s and temperature is %f degrees C [%s]",
+		this.accessory.displayName,
+		coolingTemperature,
+		typeof coolingTemperature
+	);
+	cb(null, coolingTemperature);
+}
+
+AlmondAccessory.prototype.setCoolingThresholdTemperature = function(temperature, cb) {
+	this.log("Setting cooling temperature threshold [%s] to: %f degrees C [%s]", this.accessory.displayName, temperature, typeof temperature);
+
+	var mode = this.device.getProp(this.device.props.Mode);
+	if (mode == "Auto") {
+		// This property should only be set in Auto mode
+		var units = this.device.getProp(this.device.props.Units);
+		var coolingTemperature = temperature;
+		if (units == "F") {
+			coolingTemperature = coolingTemperature * 1.8 + 32;
+			// Not sure if this 0.5-degree rounding is necessary
+			coolingTemperature = Number(Math.round(coolingTemperature * 2) / 2).toString();
+		}
+		this.device.setProp(this.device.props.SetpointCooling, coolingTemperature, function() {
+			if (cb) cb(null);
+		});
+	} else {
+		// Run callback with no error
+		cb(null);
+	}
+}
+
+AlmondAccessory.prototype.getHeatingThresholdTemperature = function(cb) {
+	var units = this.device.getProp(this.device.props.Units);
+	var heatingTemperature = Number(this.device.getProp(this.device.props.SetpointHeating));
+	if (units == "F") {
+		heatingTemperature = (heatingTemperature - 32) / 1.8;
+	}
+	heatingTemperature = heatingTemperature.toFixed(1);
+
+	this.log(
+		"Getting current heating temperature threshold for: %s and temperature is %f degrees C [%s]",
+		this.accessory.displayName,
+		heatingTemperature,
+		typeof heatingTemperature
+	);
+	cb(null, heatingTemperature);
+}
+
+AlmondAccessory.prototype.setHeatingThresholdTemperature = function(temperature, cb) {
+	this.log("Setting heating temperature threshold [%s] to: %f degrees C [%s]", this.accessory.displayName, temperature, typeof temperature);
+
+	var mode = this.device.getProp(this.device.props.Mode);
+	if (mode == "Auto") {
+		// This property should only be set in Auto mode
+		var units = this.device.getProp(this.device.props.Units);
+		var heatingTemperature = temperature;
+		if (units == "F") {
+			heatingTemperature = heatingTemperature * 1.8 + 32;
+			// Not sure if this 0.5-degree rounding is necessary
+			heatingTemperature = Number(Math.round(heatingTemperature * 2) / 2).toString();
+		}
+		this.device.setProp(this.device.props.SetpointHeating, heatingTemperature, function() {
+			if (cb) cb(null);
+		});
+	} else {
+		// Run callback with no error
+		cb(null);
+	}
+}
+
+AlmondAccessory.prototype.getThermostatFanMode = function(cb) {
+	var fanMode = this.device.getProp(this.device.props.FanMode);
+	this.log(
+		"Getting fan mode for: %s and mode is %s [%s]",
+		this.accessory.displayName,
+		fanMode,
+		typeof fanMode
+	);
+	cb(null, fanMode == "On Low");
+}
+
+AlmondAccessory.prototype.setThermostatFanMode = function(state, cb) {
+	this.log("Setting thermostat fan mode [%s] to: %s [%s]", this.accessory.displayName, state.toString(), typeof state);
+
+	this.device.setProp(this.device.props.FanMode, state ? "On Low" : "Auto Low", function() {
+		if (cb) cb(null);
+	});
+}
+
+
 AlmondAccessory.prototype.updateReachability = function(reachable) {
-    this.accessory.updateReachability(reachable);
+	this.accessory.updateReachability(reachable);
 }
