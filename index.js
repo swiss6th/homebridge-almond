@@ -50,7 +50,7 @@ function AlmondPlatform(log, config, api) {
 AlmondPlatform.prototype.addAccessory = function(device) {
 	var platform = this;
 	var services = [];
-	this.log("Got device. Name:%s, ID:[%s], Type:%s", device.name, device.id, device.type)
+	this.log("Got device. Name: %s, ID: %s, Type: %s", device.name, device.id, device.type)
 
 	if (device.props === undefined) {
 		this.log("Device not supported.");
@@ -58,31 +58,43 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 	}
 
 	switch (device.type) {
+		case '2':
+			// Multilevel switch without on/off
+			this.log("+Service.Lightbulb (MultilevelSwitch)");
+			services.push(Service.Lightbulb);
 		case '4':
-			/*LightBulb with dimmer*/
+			//Lightbulb with dimmer
 			this.log("+Service.Lightbulb");
 			services.push(Service.Lightbulb);
 			break;
+		case '7':
+			// Thermostat
+			this.log("+Service.Thermostat");
+			services.push(Service.Thermostat);
+			break;
+		case '12':
+			// Contact sensor
+			this.log("+Service.ContactSensor");
+			services.push(Service.ContactSensor);
+			// ToDo: test for temperature sensor service
+			break;
 		case '13':
-			/*Fire sensor*/
+			// Fire sensor
 			this.log("+Service.SmokeSensor");
 			services.push(Service.SmokeSensor);
 			break;
-		case '12':
-			/*Contact sensor*/
-			this.log("+Service.ContactSensor");
-			services.push(Service.ContactSensor);
-			/*ToDo: test for temperature sensor service*/
-			break;
-		case '7':
-			/*Thermostat*/
-			this.log("+Service.Thermostat");
-			services.push(Service.Thermostat);
+		case '60':
+			// Generic PSM
+			if (device.manufacturer !== undefined && device.manufacturer == "GE" && device.model !== undefined && device.model == "Unknown: type=4944,") {
+				// This is a GE continuous fan controller, which shows up as a siren in the Almond app
+				this.log("+Service.Fan");
+				services.push(Service.Fan);
+			}
 			break;
 		default:
 			this.log("+Service.SwitchBinary");
 			if (device.props.SwitchBinary !== undefined) {
-				/*Fallback to Switch*/
+				// Fallback to Switch
 				services.push(Service.Switch);
 			}
 	}
@@ -109,7 +121,6 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 		if (accessory.getService(service) == undefined) {
 
 			if (service == Service.Lightbulb) {
-				this.log("gotta light?");
 				accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.Brightness);
 			} else if (service == Service.SmokeSensor) {
 				var sv = accessory.addService(service, device.name + nameappend)
@@ -131,6 +142,8 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 				sv.addCharacteristic(Characteristic.CoolingThresholdTemperature);
 				sv.addCharacteristic(Characteristic.HeatingThresholdTemperature);
 				accessory.addService(Service.Fan, device.name + " Fan" + nameappend);
+			} else if (service == Service.Fan) {
+				accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.RotationSpeed);
 			}
 
 		}
@@ -203,13 +216,17 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 	if (service !== undefined) {
 		servicecount++;
 
-		service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
+		service.getCharacteristic(Characteristic.On)
+			.on('set', this.setSwitchState.bind(this))
+			.on('get', this.getSwitchState.bind(this));
 
 		if (this.device.type == '43') {
 			service = this.accessory.getService(this.device.name + " Switch 2");
 
 			if (service !== undefined) {
-				service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState2.bind(this)).on('get', this.getSwitchState2.bind(this));
+				service.getCharacteristic(Characteristic.On)
+					.on('set', this.setSwitchState2.bind(this))
+					.on('get', this.getSwitchState2.bind(this));
 			}
 		}
 	}
@@ -218,8 +235,23 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 	if (service !== undefined) {
 		servicecount++;
 
-		service.getCharacteristic(Characteristic.Brightness).on('set', this.setBrightness.bind(this)).on('get', this.getBrightness.bind(this));
-		service.getCharacteristic(Characteristic.On).on('set', this.setSwitchState.bind(this)).on('get', this.getSwitchState.bind(this));
+		if (this.device.type == '2') {
+			// Multilevel switch without on/off
+			service.getCharacteristic(Characteristic.Brightness)
+				.on('set', this.setMultilevelSwitchValue.bind(this))
+				.on('get', this.getMultilevelSwitchValue.bind(this));
+			service.getCharacteristic(Characteristic.On)
+				.on('set', this.setMultilevelSwitchState.bind(this))
+				.on('get', this.getMultilevelSwitchState.bind(this));
+		} else {
+			// Normal lightbulb
+			service.getCharacteristic(Characteristic.Brightness)
+				.on('set', this.setBrightness.bind(this))
+				.on('get', this.getBrightness.bind(this));
+			service.getCharacteristic(Characteristic.On)
+				.on('set', this.setSwitchState.bind(this))
+				.on('get', this.getSwitchState.bind(this));
+		}
 	}
 
 	service = this.accessory.getService(Service.SmokeSensor);
@@ -271,9 +303,19 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 	if (service !== undefined) {
 		servicecount++;
 
-		// Thermostat fan mode control
 		if (this.device.type == '7') {
-			service.getCharacteristic(Characteristic.On).on('set', this.setThermostatFanMode.bind(this)).on('get', this.getThermostatFanMode.bind(this));
+			// Thermostat fan mode switch (Auto/On)
+			service.getCharacteristic(Characteristic.On)
+				.on('set', this.setThermostatFanMode.bind(this))
+				.on('get', this.getThermostatFanMode.bind(this));
+		} else {
+			// Normal fan
+			service.getCharacteristic(Characteristic.On)
+				.on('set', this.setMultilevelSwitchState.bind(this))
+				.on('get', this.getMultilevelSwitchState.bind(this));
+			service.getCharacteristic(Characteristic.RotationSpeed)
+				.on('set', this.setMultilevelSwitchValue.bind(this))
+				.on('get', this.getMultilevelSwitchValue.bind(this));
 		}
 	}
 
@@ -437,7 +479,7 @@ AlmondAccessory.prototype.updateBoolState = function(value, prop) {
 
 	if (this.device.type == '4') {
 
-		this.log("Updating Light bulb State to: %s [%s]", value, typeof value);
+		this.log("Updating Lightbulb state to: %s [%s]", value, typeof value);
 		service = this.accessory.getService(Service.Lightbulb);
 		service.getCharacteristic(Characteristic.On).updateValue(value);
 
@@ -750,7 +792,7 @@ AlmondAccessory.prototype.getThermostatFanMode = function(cb) {
 }
 
 AlmondAccessory.prototype.setThermostatFanMode = function(state, cb) {
-	this.log("Setting thermostat fan mode [%s] to: %s [%s]", this.accessory.displayName, state.toString(), typeof state);
+	this.log("Setting thermostat fan mode [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
 
 	this.device.setProp(this.device.props.FanMode, state ? "On Low" : "Auto Low", function() {
 		if (cb) cb(null);
@@ -760,4 +802,58 @@ AlmondAccessory.prototype.setThermostatFanMode = function(state, cb) {
 
 AlmondAccessory.prototype.updateReachability = function(reachable) {
 	this.accessory.updateReachability(reachable);
+}
+
+
+
+// Below is experimental code. Once tested, it will appear above this line.
+
+AlmondAccessory.prototype.getMultilevelSwitchState = function(cb) {
+	var value = Number(this.device.getProp(this.device.props.SwitchMultilevel));
+	var state = value > 0;
+
+	this.log(
+		"Getting state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		state,
+		typeof state
+	);
+	cb(null, state);
+}
+
+AlmondAccessory.prototype.setMultilevelSwitchState = function(state, cb) {
+	this.log("Setting state [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
+
+	var value = undefined;
+	if (state) {
+		value = this.device._CachedMultilevelSwitchValue;
+	} else {
+		value = '0';
+		this.device._CachedMultilevelSwitchValue = this.device.getProp(this.device.props.SwitchMultilevel);
+	}
+
+	this.device.setProp(this.device.props.SwitchMultilevel, value, function() {
+		if (cb) cb(null);
+	});
+}
+
+AlmondAccessory.prototype.getMultilevelSwitchValue = function(cb) {
+	var value = Number(this.device.getProp(this.device.props.SwitchMultilevel));
+	value = Math.round(value * 100 / 255);
+
+	this.log(
+		"Getting value for: %s and value is %s % [%s]",
+		this.accessory.displayName,
+		value,
+		typeof value
+	);
+	cb(null, brightness);
+}
+
+AlmondAccessory.prototype.setMultilevelSwitchValue = function(value, cb) {
+	this.log("Setting value [%s] to: %s - %s % [%s]", this.accessory.displayName, value * 255 / 100, value, typeof value);
+
+	this.device.setProp(this.device.props.SwitchMultilevel, value * 255 / 100, function() {
+		if (cb) cb(null);
+	});
 }

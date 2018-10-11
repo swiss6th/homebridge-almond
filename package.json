@@ -16,7 +16,7 @@
     "homebridge-plugin"
   ],
   "dependencies": {
-    "almond-client": "pablopoo/almond-client",
+    "almond-client": "swiss6th/almond-client",
     "debug": "^2.6.0"
   },
   "engines": {
