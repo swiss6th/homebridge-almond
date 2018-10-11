@@ -8,11 +8,9 @@ Almond+ Platform plugin for the amazing [Homebridge](https://github.com/nfarina/
 
 # Configuration
 
-Configuration sample:
+This uses the Almond+ [WebSocket API](https://wiki.securifi.com/index.php/Websockets_Documentation#Devicelist), so you need to be running at least R89 firmware.
 
-This uses the Almond+ [websocket API](https://wiki.securifi.com/index.php/Websockets_Documentation#Devicelist) so you need to be running at least R89 firmware.
-
-Then add this to your homebridge config.json (updating the password).
+Then add this to your homebridge `config.json` (updating the host and password).
 
  ```javascript
     "platforms": [
@@ -34,10 +32,9 @@ Then add this to your homebridge config.json (updating the password).
 - Smoke detectors
 - Thermostats (mostly)
 
-Not everything functions perfectly. More sensors will be added as time (and expertise) permits. 
+Not everything functions perfectly. More sensors will be added as time (and expertise) permits.
 
 # Credits
-Credits to
 - Pablo Poo, on whose fork this plugin is based
 - Thomas Purchas, the original creator of the plugin
 - Timon Reinhard, as Purchas based his Almond Client on Reinhard's [work](https://github.com/timonreinhard/wemo-client)
