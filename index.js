@@ -328,9 +328,8 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 				if (typeof value === 'string') {
 					if (value === 'true' || value === 'false') {
 						value = value == 'true';
-						value = (value | 0) ? true : false; // Isn't this redundant?
 					}
-
+					value = (value | 0) ? true : false;
 				}
 
 				self.updateBoolState(value, prop);
@@ -382,16 +381,16 @@ AlmondAccessory.prototype.getSwitchState2 = function(cb) {
 }
 
 AlmondAccessory.prototype.getBrightness = function(cb) {
-	var state = this.device.getProp(this.device.props.SwitchMultilevel);
-	state = Math.round(state * 100 / 255);
+	var brightness = this.device.getProp(this.device.props.SwitchMultilevel);
+	brightness = Math.round(brightness * 100 / 255);
 
 	this.log(
-		"Getting brightness state for: %s and state is %s [%s]",
+		"Getting brightness for: %s and brightness is %s [%s]",
 		this.accessory.displayName,
-		state,
-		typeof state
+		brightness,
+		typeof brightness
 	);
-	cb(null, state);
+	cb(null, brightness);
 }
 
 AlmondAccessory.prototype.getStateState = function(cb) {
@@ -465,10 +464,9 @@ AlmondAccessory.prototype.setSwitchState2 = function(state, cb) {
 }
 
 AlmondAccessory.prototype.setBrightness = function(state, cb) {
-	this.log("Setting brightness [%s] to: %s - %s % [%s]", this.accessory.displayName, state * 255 / 100, state, typeof state);
-	// var value = (state | 0) ? true:false;
+	this.log("Setting brightness [%s] to: %s - %s % [%s]", this.accessory.displayName, Math.round(state * 255 / 100), state, typeof state);
 
-	this.device.setProp(this.device.props.SwitchMultilevel, state * 255 / 100, function() {
+	this.device.setProp(this.device.props.SwitchMultilevel, String(Math.round(state * 255 / 100)), function() {
 		if (cb) cb(null);
 	});
 }
@@ -851,9 +849,9 @@ AlmondAccessory.prototype.getMultilevelSwitchValue = function(cb) {
 }
 
 AlmondAccessory.prototype.setMultilevelSwitchValue = function(value, cb) {
-	this.log("Setting value [%s] to: %s - %s % [%s]", this.accessory.displayName, value * 255 / 100, value, typeof value);
+	this.log("Setting value [%s] to: %s - %s % [%s]", this.accessory.displayName, Math.round(value * 255 / 100), value, typeof value);
 
-	this.device.setProp(this.device.props.SwitchMultilevel, value * 255 / 100, function() {
+	this.device.setProp(this.device.props.SwitchMultilevel, Math.round(value * 255 / 100), function() {
 		if (cb) cb(null);
 	});
 }

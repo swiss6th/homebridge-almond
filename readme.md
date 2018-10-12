@@ -26,13 +26,16 @@ Then add this to your homebridge `config.json` (updating the host and password).
 ```
 
 # Supported Sensors
+
 - Binary switches
 - Lightbulbs
 - Contact sensors
 - Smoke detectors
 - Thermostats (mostly)
 
-Not everything functions perfectly. More sensors will be added as time (and expertise) permits.
+# Warnings
+
+Not everything functions perfectly. I am tailing this fork to my needs. I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately).
 
 # Credits
 - Pablo Poo, on whose fork this plugin is based
