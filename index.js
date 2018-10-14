@@ -653,10 +653,10 @@ AlmondAccessory.prototype.getTargetTemperature = function(cb) {
 	} else if (mode == "Cool") {
 		targetTemperature = Number(this.device.getProp(this.device.props.SetpointCooling));
 	} else if (mode == "Auto" || mode == "Off") {
-		// This is bogus, but we have to give an answer
+		// This is unnecessary but useful to show something is wrong to the user
 		let heatingTemperature = Number(this.device.getProp(this.device.props.SetpointHeating));
 		let coolingTemperature = Number(this.device.getProp(this.device.props.SetpointCooling));
-		targetTemperature = Number((heatingTemperature + coolingTemperature) / 2).toFixed(1);
+		targetTemperature = Number(((heatingTemperature + coolingTemperature) / 2).toFixed(1));
 	}
 	if (units == "F") {
 		targetTemperature = (targetTemperature - 32) / 1.8;
@@ -675,6 +675,8 @@ AlmondAccessory.prototype.getTargetTemperature = function(cb) {
 AlmondAccessory.prototype.setTargetTemperature = function(temperature, cb) {
 	this.log("Setting target temperature [%s] to: %f degrees C [%s]", this.accessory.displayName, temperature, typeof temperature);
 
+	var self = this;
+
 	var units = this.device.getProp(this.device.props.Units);
 	var mode = this.device.getProp(this.device.props.Mode);
 	var targetTemperature = temperature;
@@ -683,13 +685,17 @@ AlmondAccessory.prototype.setTargetTemperature = function(temperature, cb) {
 		// Not sure if this 0.5-degree rounding is necessary
 		targetTemperature = Number(Math.round(targetTemperature * 2) / 2).toString();
 	}
-	if (mode == "Heat") {
+	if (mode == "Heat" || mode == "Off") {
 		this.device.setProp(this.device.props.SetpointHeating, targetTemperature, function() {
-			if (cb) cb(null);
+			self.device.setProp(self.device.props.SetpointCooling, targetTemperature, function() {
+				if (cb) cb(null);
+			});
 		});
 	} else if (mode == "Cool") {
 		this.device.setProp(this.device.props.SetpointCooling, targetTemperature, function() {
-			if (cb) cb(null);
+			self.device.setProp(self.device.props.SetpointHeating, targetTemperature, function() {
+				if (cb) cb(null);
+			});
 		});
 	} else {
 		cb(null);
@@ -746,7 +752,7 @@ AlmondAccessory.prototype.getCoolingThresholdTemperature = function(cb) {
 	if (units == "F") {
 		coolingTemperature = (coolingTemperature - 32) / 1.8;
 	}
-	coolingTemperature = coolingTemperature.toFixed(1);
+	coolingTemperature = Number(coolingTemperature.toFixed(1));
 
 	this.log(
 		"Getting current cooling temperature threshold for: %s and temperature is %f degrees C [%s]",
@@ -762,7 +768,7 @@ AlmondAccessory.prototype.setCoolingThresholdTemperature = function(temperature,
 
 	var mode = this.device.getProp(this.device.props.Mode);
 	if (mode == "Auto") {
-		// This property should only be set in Auto mode
+		// This characteristic should only be set in Auto mode
 		var units = this.device.getProp(this.device.props.Units);
 		var coolingTemperature = temperature;
 		if (units == "F") {
@@ -785,7 +791,7 @@ AlmondAccessory.prototype.getHeatingThresholdTemperature = function(cb) {
 	if (units == "F") {
 		heatingTemperature = (heatingTemperature - 32) / 1.8;
 	}
-	heatingTemperature = heatingTemperature.toFixed(1);
+	heatingTemperature = Number(heatingTemperature.toFixed(1));
 
 	this.log(
 		"Getting current heating temperature threshold for: %s and temperature is %f degrees C [%s]",
@@ -801,7 +807,7 @@ AlmondAccessory.prototype.setHeatingThresholdTemperature = function(temperature,
 
 	var mode = this.device.getProp(this.device.props.Mode);
 	if (mode == "Auto") {
-		// This property should only be set in Auto mode
+		// This characteristic should only be set in Auto mode
 		var units = this.device.getProp(this.device.props.Units);
 		var heatingTemperature = temperature;
 		if (units == "F") {
