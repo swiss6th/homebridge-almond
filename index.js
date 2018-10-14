@@ -83,6 +83,16 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 			this.log("+Service.SmokeSensor");
 			services.push(Service.SmokeSensor);
 			break;
+		case '36':
+			// Smoke detector
+			this.log("+Service.SmokeSensor");
+			services.push(Service.SmokeSensor);
+			break;
+		case '53':
+			// Garage door opener
+			this.log("+Service.GarageDoorOpener");
+			services.push(Service.GarageDoorOpener);
+			break;
 		case '60':
 			// Generic PSM
 			if (device.manufacturer !== undefined && device.manufacturer == "GE" && device.model !== undefined && device.model == "Unknown: type=4944,") {
@@ -123,13 +133,17 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 			if (service == Service.Lightbulb) {
 				accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.Brightness);
 			} else if (service == Service.SmokeSensor) {
-				var sv = accessory.addService(service, device.name + nameappend)
-				sv.addCharacteristic(Characteristic.StatusLowBattery);
-				sv.addCharacteristic(Characteristic.StatusTampered);
+				if (device.type == '36') {
+					accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.StatusLowBattery);
+				} else {
+					accessory.addService(service, device.name + nameappend)
+						.addCharacteristic(Characteristic.StatusLowBattery)
+						.addCharacteristic(Characteristic.StatusTampered);
+				}
 			} else if (service == Service.ContactSensor) {
-				var sv = accessory.addService(service, device.name + nameappend)
-				sv.addCharacteristic(Characteristic.StatusLowBattery);
-				sv.addCharacteristic(Characteristic.StatusTampered);
+				accessory.addService(service, device.name + nameappend)
+					.addCharacteristic(Characteristic.StatusLowBattery)
+					.addCharacteristic(Characteristic.StatusTampered);
 			} else if (service == Service.Switch) {
 				accessory.addService(service, device.name + nameappend, device.name + nameappend);
 				if (device.type == '43') {
@@ -137,13 +151,15 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 					accessory.addService(service, device.name + nameappend, device.name + nameappend);
 				}
 			} else if (service == Service.Thermostat) {
-				var sv = accessory.addService(service, device.name + nameappend)
-				sv.addCharacteristic(Characteristic.CurrentRelativeHumidity);
-				sv.addCharacteristic(Characteristic.CoolingThresholdTemperature);
-				sv.addCharacteristic(Characteristic.HeatingThresholdTemperature);
+				accessory.addService(service, device.name + nameappend)
+					.addCharacteristic(Characteristic.CurrentRelativeHumidity)
+					.addCharacteristic(Characteristic.CoolingThresholdTemperature)
+					.addCharacteristic(Characteristic.HeatingThresholdTemperature);
 				accessory.addService(Service.Fan, device.name + " Fan" + nameappend);
 			} else if (service == Service.Fan) {
 				accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.RotationSpeed);
+			} else if (service == Service.GarageDoorOpener) {
+				accessory.addService(service, device.name + nameappend);
 			}
 
 		}
@@ -258,9 +274,17 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 	if (service !== undefined) {
 		servicecount++;
 
-		service.getCharacteristic(Characteristic.SmokeDetected).on('get', this.getStateState.bind(this));
-		service.getCharacteristic(Characteristic.StatusTampered).on('get', this.getTamperState.bind(this));
-		service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getLowBatteryState.bind(this));
+		// Almond has 2 different "Smoke Sensor" types
+		if (this.device.type == '36') {
+			// Smoke detector
+			service.getCharacteristic(Characteristic.SmokeDetected).on('get', this.getSmokeDetectorStateState.bind(this));
+			service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getSmokeDetectorLowBatteryState.bind(this));
+		} else {
+			// Fire sensor
+			service.getCharacteristic(Characteristic.SmokeDetected).on('get', this.getStateState.bind(this));
+			service.getCharacteristic(Characteristic.StatusTampered).on('get', this.getTamperState.bind(this));
+			service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getLowBatteryState.bind(this));
+		}
 	}
 
 	service = this.accessory.getService(Service.ContactSensor);
@@ -318,6 +342,20 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 				.on('get', this.getMultilevelSwitchValue.bind(this));
 		}
 	}
+	
+	service = this.accessory.getService(Service.GarageDoorOpener);
+	if (service !== undefined) {
+		servicecount++;
+		
+		service.getCharacteristic(Characteristic.CurrentDoorState)
+			.on('get', this.getCurrentDoorState.bind(this));
+		service.getCharacteristic(Characteristic.TargetDoorState)
+			.on('get', this.getTargetDoorState.bind(this))
+			.on('set', this.setTargetDoorState.bind(this));
+		service.getCharacteristic(Characteristic.ObstructionDetected)
+			.on('get', this.getObstructionDetected.bind(this));
+
+	}
 
 
 	if (servicecount > 0) {
@@ -337,7 +375,7 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 
 			if (this.props.SwitchMultilevel == prop) {
 				value = Math.round(value * 100 / 255);
-				self.updateBrightnessState(value);
+//				self.updateBrightnessState(value);
 			}
 		})
 	}
@@ -532,7 +570,9 @@ AlmondAccessory.prototype.updateBrightnessState = function(value) {
 	this.log("Updating Brightness State to: %s [%s]", value, typeof value);
 
 	var service = this.accessory.getService(Service.Lightbulb);
-	service.getCharacteristic(Characteristic.Brightness).updateValue(value);
+	if (service !== undefined) {
+		service.getCharacteristic(Characteristic.Brightness).updateValue(value);
+	}
 }
 
 AlmondAccessory.prototype.getCurrentHeatingCoolingState = function(cb) {
@@ -822,7 +862,7 @@ AlmondAccessory.prototype.getMultilevelSwitchState = function(cb) {
 AlmondAccessory.prototype.setMultilevelSwitchState = function(state, cb) {
 	this.log("Setting state [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
 
-	var value = undefined;
+	var value;
 	if (state) {
 		value = this.device._CachedMultilevelSwitchValue;
 	} else {
@@ -845,7 +885,7 @@ AlmondAccessory.prototype.getMultilevelSwitchValue = function(cb) {
 		value,
 		typeof value
 	);
-	cb(null, brightness);
+	cb(null, value);
 }
 
 AlmondAccessory.prototype.setMultilevelSwitchValue = function(value, cb) {
@@ -855,3 +895,108 @@ AlmondAccessory.prototype.setMultilevelSwitchValue = function(value, cb) {
 		if (cb) cb(null);
 	});
 }
+
+AlmondAccessory.prototype.getCurrentDoorState = function(cb) {
+	var states = {
+		"0": Characteristic.CurrentDoorState.CLOSED,
+		"252": Characteristic.CurrentDoorState.CLOSING,
+		"253": Characteristic.CurrentDoorState.STOPPED,
+		"254": Characteristic.CurrentDoorState.OPENING,
+		"255": Characteristic.CurrentDoorState.OPEN
+	}
+	var state = this.device.getProp(this.device.props.BarrierOperator);
+
+	this.log(
+		"Getting current door state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		states[state],
+		typeof states[state]
+	);
+	cb(null, states[state]);
+}
+
+AlmondAccessory.prototype.getTargetDoorState = function(cb) {
+	var targetState;
+	if (this.device._targetDoorState !== undefined) {
+		targetState = this.device._targetDoorState;
+	} else {
+		let currentState = this.device.getProp(this.device.props.BarrierOperator);
+		if (currentState == "0" || currentState == "252") {
+			targetState = Characteristic.TargetDoorState.CLOSED;
+		} else if (currentState == "255" || currentState == "254") {
+			targetState = Characteristic.TargetDoorState.OPEN;
+		} else {
+			// Not sure if this is the best default, but we have to answer
+			targetState = Characteristic.TargetDoorState.CLOSED;
+		}
+	}
+
+	this.log(
+		"Getting target door state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		targetState,
+		typeof targetState
+	);
+	cb(null, targetState);
+}
+
+AlmondAccessory.prototype.setTargetDoorState = function(state, cb) {
+	this.log("Setting target door state [%s] to: %s [%s]", this.accessory.displayName, state, typeof state);
+
+	var states = [];
+	states[Characteristic.TargetDoorState.OPEN] = "255";
+	states[Characteristic.TargetDoorState.CLOSED] = "0";	
+
+	this.device.setProp(this.device.props.BarrierOperator, states[state], function() {
+		if (cb) cb(null);
+	});
+}
+
+AlmondAccessory.prototype.getObstructionDetected = function(cb) {
+	var obstruction = this.device.getProp(this.device.props.BarrierOperator) == "253";
+
+	this.log(
+		"Getting obstruction detected for: %s and detected is %s [%s]",
+		this.accessory.displayName,
+		obstruction,
+		typeof obstruction
+	);
+	cb(null, obstruction);
+}
+
+AlmondAccessory.prototype.getSmokeDetectorStateState = function(cb) {
+	var state = Number(this.device.getProp(this.device.props.Status) > 0);
+	state = Number(state);
+
+	var states = [
+		Characteristic.SmokeDetected.SMOKE_NOT_DETECTED,
+		Characteristic.SmokeDetected.SMOKE_DETECTED
+	]
+
+	this.log(
+		"Getting smoke detected for: %s and detected is %s [%s]",
+		this.accessory.displayName,
+		states[state],
+		typeof states[state]
+	);
+	cb(null, states[state]);
+}
+
+AlmondAccessory.prototype.getSmokeDetectorLowBatteryState = function(cb) {
+	var state = Number(this.device.getProp(this.device.props.Battery) <= 20);
+	state = Number(state);
+
+	var states = [
+		Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+		Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+	]
+
+	this.log(
+		"Getting low battery state for: %s and state is %s [%s]",
+		this.accessory.displayName,
+		states[state],
+		typeof states[state]
+	);
+	cb(null, states[state]);
+}
+
