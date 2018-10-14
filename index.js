@@ -62,6 +62,7 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 			// Multilevel switch without on/off
 			this.log("+Service.Lightbulb (MultilevelSwitch)");
 			services.push(Service.Lightbulb);
+			break;
 		case '4':
 			//Lightbulb with dimmer
 			this.log("+Service.Lightbulb");
@@ -633,7 +634,7 @@ AlmondAccessory.prototype.getCurrentTemperature = function(cb) {
 	if (units == "F") {
 		temperature = (temperature - 32) / 1.8;
 	}
-	temperature = temperature.toFixed(1);
+	temperature = Number(temperature.toFixed(1));
 
 	this.log(
 		"Getting current temperature for: %s and temperature is %f degrees C [%s]",
@@ -653,7 +654,7 @@ AlmondAccessory.prototype.getTargetTemperature = function(cb) {
 	} else if (mode == "Cool") {
 		targetTemperature = Number(this.device.getProp(this.device.props.SetpointCooling));
 	} else if (mode == "Auto" || mode == "Off") {
-		// This is unnecessary but useful to show something is wrong to the user
+		// This is bogus, but we have to give an answer
 		let heatingTemperature = Number(this.device.getProp(this.device.props.SetpointHeating));
 		let coolingTemperature = Number(this.device.getProp(this.device.props.SetpointCooling));
 		targetTemperature = Number(((heatingTemperature + coolingTemperature) / 2).toFixed(1));
@@ -661,7 +662,7 @@ AlmondAccessory.prototype.getTargetTemperature = function(cb) {
 	if (units == "F") {
 		targetTemperature = (targetTemperature - 32) / 1.8;
 	}
-	targetTemperature = targetTemperature.toFixed(1);
+	targetTemperature = Number(targetTemperature.toFixed(1));
 
 	this.log(
 		"Getting current target temperature for: %s and temperature is %f degrees C [%s]",
@@ -675,8 +676,6 @@ AlmondAccessory.prototype.getTargetTemperature = function(cb) {
 AlmondAccessory.prototype.setTargetTemperature = function(temperature, cb) {
 	this.log("Setting target temperature [%s] to: %f degrees C [%s]", this.accessory.displayName, temperature, typeof temperature);
 
-	var self = this;
-
 	var units = this.device.getProp(this.device.props.Units);
 	var mode = this.device.getProp(this.device.props.Mode);
 	var targetTemperature = temperature;
@@ -685,17 +684,13 @@ AlmondAccessory.prototype.setTargetTemperature = function(temperature, cb) {
 		// Not sure if this 0.5-degree rounding is necessary
 		targetTemperature = Number(Math.round(targetTemperature * 2) / 2).toString();
 	}
-	if (mode == "Heat" || mode == "Off") {
+	if (mode == "Heat") {
 		this.device.setProp(this.device.props.SetpointHeating, targetTemperature, function() {
-			self.device.setProp(self.device.props.SetpointCooling, targetTemperature, function() {
-				if (cb) cb(null);
-			});
+			if (cb) cb(null);
 		});
 	} else if (mode == "Cool") {
 		this.device.setProp(this.device.props.SetpointCooling, targetTemperature, function() {
-			self.device.setProp(self.device.props.SetpointHeating, targetTemperature, function() {
-				if (cb) cb(null);
-			});
+			if (cb) cb(null);
 		});
 	} else {
 		cb(null);
@@ -768,7 +763,7 @@ AlmondAccessory.prototype.setCoolingThresholdTemperature = function(temperature,
 
 	var mode = this.device.getProp(this.device.props.Mode);
 	if (mode == "Auto") {
-		// This characteristic should only be set in Auto mode
+		// This property should only be set in Auto mode
 		var units = this.device.getProp(this.device.props.Units);
 		var coolingTemperature = temperature;
 		if (units == "F") {
@@ -807,7 +802,7 @@ AlmondAccessory.prototype.setHeatingThresholdTemperature = function(temperature,
 
 	var mode = this.device.getProp(this.device.props.Mode);
 	if (mode == "Auto") {
-		// This characteristic should only be set in Auto mode
+		// This property should only be set in Auto mode
 		var units = this.device.getProp(this.device.props.Units);
 		var heatingTemperature = temperature;
 		if (units == "F") {
