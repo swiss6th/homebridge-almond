@@ -1,6 +1,8 @@
 "use strict";
 
 var Almond = require('almond-client'),
+	deviceTypes = require('almond-client/deviceTypes'),
+	deviceProperties = require('almond-client/deviceProperties'),
 	debug = require('debug')('homebridge-platform-almond');
 
 var Accessory, Characteristic, Consumption, Service, TotalConsumption, UUIDGen;
@@ -57,45 +59,37 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 		return;
 	}
 
-	switch (device.type) {
-		case '2':
-			// Multilevel switch without on/off
+	switch (Number(device.type)) {
+		case deviceTypes.MultilevelSwitch:
 			this.log("+Service.Lightbulb (MultilevelSwitch)");
 			services.push(Service.Lightbulb);
 			break;
-		case '4':
-			//Lightbulb with dimmer
+		case deviceTypes.MultilevelSwitchOnOff:
 			this.log("+Service.Lightbulb");
 			services.push(Service.Lightbulb);
 			break;
-		case '7':
-			// Thermostat
+		case deviceTypes.Thermostat:
 			this.log("+Service.Thermostat");
 			services.push(Service.Thermostat);
 			break;
-		case '12':
-			// Contact sensor
+		case deviceTypes.ContactSwitch:
 			this.log("+Service.ContactSensor");
 			services.push(Service.ContactSensor);
 			// ToDo: test for temperature sensor service
 			break;
-		case '13':
-			// Fire sensor
+		case deviceTypes.FireSensor:
 			this.log("+Service.SmokeSensor");
 			services.push(Service.SmokeSensor);
 			break;
-		case '36':
-			// Smoke detector
+		case deviceTypes.SmokeDetector:
 			this.log("+Service.SmokeSensor");
 			services.push(Service.SmokeSensor);
 			break;
-		case '53':
-			// Garage door opener
+		case deviceTypes.GarageDoorOpener:
 			this.log("+Service.GarageDoorOpener");
 			services.push(Service.GarageDoorOpener);
 			break;
-		case '60':
-			// Generic PSM
+		case deviceTypes.GenericPSM:
 			if (device.manufacturer !== undefined && device.manufacturer == "GE" && device.model !== undefined && device.model == "Unknown: type=4944,") {
 				// This is a GE continuous fan controller, which shows up as a siren in the Almond app
 				this.log("+Service.Fan");
@@ -134,28 +128,28 @@ AlmondPlatform.prototype.addAccessory = function(device) {
 			if (service == Service.Lightbulb) {
 				accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.Brightness);
 			} else if (service == Service.SmokeSensor) {
-				if (device.type == '36') {
+				if (Number(device.type) == deviceTypes.SmokeDetector) {
 					accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.StatusLowBattery);
 				} else {
-					accessory.addService(service, device.name + nameappend)
-						.addCharacteristic(Characteristic.StatusLowBattery)
-						.addCharacteristic(Characteristic.StatusTampered);
+					let s = accessory.addService(service, device.name + nameappend);
+					s.addCharacteristic(Characteristic.StatusLowBattery);
+					s.addCharacteristic(Characteristic.StatusTampered);
 				}
 			} else if (service == Service.ContactSensor) {
-				accessory.addService(service, device.name + nameappend)
-					.addCharacteristic(Characteristic.StatusLowBattery)
-					.addCharacteristic(Characteristic.StatusTampered);
+				let s = accessory.addService(service, device.name + nameappend);
+				s.addCharacteristic(Characteristic.StatusLowBattery);
+				s.addCharacteristic(Characteristic.StatusTampered);
 			} else if (service == Service.Switch) {
 				accessory.addService(service, device.name + nameappend, device.name + nameappend);
-				if (device.type == '43') {
+				if (Number(device.type) == deviceTypes.MultiSwitch) {
 					nameappend = " Switch 2";
 					accessory.addService(service, device.name + nameappend, device.name + nameappend);
 				}
 			} else if (service == Service.Thermostat) {
-				accessory.addService(service, device.name + nameappend)
-					.addCharacteristic(Characteristic.CurrentRelativeHumidity)
-					.addCharacteristic(Characteristic.CoolingThresholdTemperature)
-					.addCharacteristic(Characteristic.HeatingThresholdTemperature);
+				let s = accessory.addService(service, device.name + nameappend);
+				s.addCharacteristic(Characteristic.CurrentRelativeHumidity);
+				s.addCharacteristic(Characteristic.CoolingThresholdTemperature);
+				s.addCharacteristic(Characteristic.HeatingThresholdTemperature);
 				accessory.addService(Service.Fan, device.name + " Fan" + nameappend);
 			} else if (service == Service.Fan) {
 				accessory.addService(service, device.name + nameappend).addCharacteristic(Characteristic.RotationSpeed);
@@ -237,7 +231,7 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 			.on('set', this.setSwitchState.bind(this))
 			.on('get', this.getSwitchState.bind(this));
 
-		if (this.device.type == '43') {
+		if (Number(this.device.type) == deviceTypes.MultiSwitch) {
 			service = this.accessory.getService(this.device.name + " Switch 2");
 
 			if (service !== undefined) {
@@ -252,7 +246,7 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 	if (service !== undefined) {
 		servicecount++;
 
-		if (this.device.type == '2') {
+		if (Number(this.device.type) == deviceTypes.MultilevelSwitch) {
 			// Multilevel switch without on/off
 			service.getCharacteristic(Characteristic.Brightness)
 				.on('set', this.setMultilevelSwitchValue.bind(this))
@@ -275,8 +269,8 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 	if (service !== undefined) {
 		servicecount++;
 
-		// Almond has 2 different "Smoke Sensor" types
-		if (this.device.type == '36') {
+		// Almond+ has 2 different "Smoke Sensor" types
+		if (Number(this.device.type) == deviceTypes.SmokeDetector) {
 			// Smoke detector
 			service.getCharacteristic(Characteristic.SmokeDetected).on('get', this.getSmokeDetectorStateState.bind(this));
 			service.getCharacteristic(Characteristic.StatusLowBattery).on('get', this.getSmokeDetectorLowBatteryState.bind(this));
@@ -328,7 +322,7 @@ AlmondAccessory.prototype.addEventHandlers = function(device) {
 	if (service !== undefined) {
 		servicecount++;
 
-		if (this.device.type == '7') {
+		if (Number(this.device.type) == deviceTypes.Thermostat) {
 			// Thermostat fan mode switch (Auto/On)
 			service.getCharacteristic(Characteristic.On)
 				.on('set', this.setThermostatFanMode.bind(this))
