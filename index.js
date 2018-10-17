@@ -50,18 +50,7 @@ class AlmondPlatform {
 		});
 	}
 
-	addAccessory(device) {
-		var platform = this;
-		this.log("Got device. Name: %s, ID: %s, Type: %s", device.name, device.id, device.type)
-	
-		if (device.props === undefined) {
-			this.log("Device not supported.");
-			return;
-		}
-	
-		var uuid = UUIDGen.generate('AlmondDevice: '.concat(device.id));	
-		var accessory = new Accessory(device.name, uuid);
-
+	buildAlmondAccessory(accessory, device) {
 		var almondAccessory;
 		switch (Number(device.type)) {
 			case deviceType.MultilevelSwitch:
@@ -106,20 +95,41 @@ class AlmondPlatform {
 					almondAccessory = new AlmondBinarySwitch(this.log, accessory, device);
 				}
 		}
-		
+
+		return almondAccessory;
+	}
+
+	addAccessory(device) {
+		var platform = this;
+		this.log("Got device. Name: %s, ID: %s, Type: %s", device.name, device.id, device.type)
+	
+		if (device.props === undefined) {
+			this.log("Device not supported.");
+			return;
+		}
+
+		var accessory;
+		var uuid = UUIDGen.generate('AlmondDevice: '.concat(device.id));	
+		var existingAccessory = this.accessories[uuid];
+
+		if (existingAccessory === undefined) {
+			accessory = new Accessory(device.name, uuid);
+		} else {
+			accessory = existingAccessory;
+		}
+
+		var almondAccessory = this.buildAlmondAccessory(accessory, device);
+
 		if (almondAccessory === undefined) {
 			this.log("No services supported: %s [%s]", device.name, device.type);
 			return;
 		}
 
-		var existingAccessory = this.accessories[uuid];
 		if (existingAccessory === undefined) {
 			this.api.registerPlatformAccessories("homebridge-platform-almond", "Almond", [accessory]);
-		} else {
-			almondAccessory.accessory = existingAccessory;
 		}
 	
-		this.accessories[almondAccessory.accessory.UUID] = almondAccessory;
+		this.accessories[uuid] = almondAccessory;
 	}
 	
 	configureAccessory(accessory) {
@@ -171,6 +181,24 @@ class AlmondAccessory {
 		});
 	
 		this.observeDevice(device);
+	}
+
+	acquireService(service, name) {
+		let existingService = this.accessory.getService(service);
+		if (existingService === undefined) {
+			return this.accessory.addService(service, name);
+		} else {
+			return existingService;
+		}
+	}
+
+	acquireCharacteristic(service, characteristic) {
+		let existingCharacteristic = service.getCharacteristic(characteristic);
+		if (existingCharacteristic === undefined) {
+			return service.addCharacteristic(characteristic);
+		} else {
+			return existingCharacteristic;
+		}
 	}
 
 	observeDevice(device) {
@@ -412,7 +440,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.Lightbulb (MultilevelSwitch)");
-		let service = accessory.addService(Service.Lightbulb, device.name);
+		let service = this.acquireService(Service.Lightbulb, device.name);
 
 		service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
@@ -423,7 +451,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 				this.setMultilevelSwitchState(value);
 			})
 
-		service.addCharacteristic(Characteristic.Brightness)
+		this.acquireCharacteristic(service, Characteristic.Brightness)
 			.on('get', (callback) => {
 				callback(null, this.getMultilevelSwitchValue());
 			})
@@ -488,7 +516,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.Lightbulb");
-		let service = accessory.addService(Service.Lightbulb, device.name);
+		let service = this.acquireService(Service.Lightbulb, device.name);
 
 		service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
@@ -499,7 +527,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 				this.setSwitchState(value);
 			});
 
-		service.addCharacteristic(Characteristic.Brightness)
+		this.acquireCharacteristic(service, Characteristic.Brightness)
 			.on('get', (callback) => {
 				callback(null, this.getBrightness());
 			})
@@ -517,7 +545,7 @@ class AlmondThermostat extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.Thermostat");
-		let service = accessory.addService(Service.Thermostat, device.name);
+		let service = this.acquireService(Service.Thermostat, device.name);
 
 		service.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
 			.on('get', (callback) => {
@@ -556,12 +584,12 @@ class AlmondThermostat extends AlmondAccessory {
 				this.setTemperatureDisplayUnits(value);
 			});
 
-		service.addCharacteristic(Characteristic.CurrentRelativeHumidity)
+		this.acquireCharacteristic(service, Characteristic.CurrentRelativeHumidity)
 			.on('get', (callback) => {
 				callback(null, this.getCurrentRelativeHumidity());
 			});
 
-		service.addCharacteristic(Characteristic.CoolingThresholdTemperature)
+		this.acquireCharacteristic(service, Characteristic.CoolingThresholdTemperature)
 			.on('get', (callback) => {
 				callback(null, this.getCoolingThresholdTemperature());
 			})
@@ -570,7 +598,7 @@ class AlmondThermostat extends AlmondAccessory {
 				this.setCoolingThresholdTemperature(value);
 			});
 
-		service.addCharacteristic(Characteristic.HeatingThresholdTemperature)
+		this.acquireCharacteristic(service, Characteristic.HeatingThresholdTemperature)
 			.on('get', (callback) => {
 				callback(null, this.getHeatingThresholdTemperature());
 			})
@@ -580,7 +608,7 @@ class AlmondThermostat extends AlmondAccessory {
 			});
 
 		this.log("+Service.Fan");
-		service = accessory.addService(Service.Fan, device.name + " Fan");
+		service = this.acquireService(Service.Fan, device.name + " Fan");
 
 		service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
@@ -851,19 +879,19 @@ class AlmondContactSwitch extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.ContactSensor");
-		let service = accessory.addService(Service.ContactSensor, device.name);
+		let service = this.acquireService(Service.ContactSensor, device.name);
 
 		service.getCharacteristic(Characteristic.ContactSensorState)
 			.on('get', (callback) => {
 				callback(null, this.getStateState());
 			});
 
-		service.addCharacteristic(Characteristic.StatusTampered)
+		this.acquireCharacteristic(service, Characteristic.StatusTampered)
 			.on('get', (callback) => {
 				callback(null, this.getTamperState());
 			});
 
-		service.addCharacteristic(Characteristic.StatusLowBattery)
+		this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
 			.on('get', (callback) => {
 				callback(null, this.getLowBatteryState());
 			});
@@ -878,19 +906,19 @@ class AlmondFireSensor extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.SmokeSensor");
-		let service = accessory.addService(Service.SmokeSensor, device.name);
+		let service = this.acquireService(Service.SmokeSensor, device.name);
 
 		service.getCharacteristic(Characteristic.SmokeDetected)
 			.on('get', (callback) => {
 				callback(null, this.getStateState());
 			});
 
-		service.addCharacteristic(Characteristic.StatusTampered)
+		this.acquireCharacteristic(service, Characteristic.StatusTampered)
 			.on('get', (callback) => {
 				callback(null, this.getTamperState());
 			});
 
-		service.addCharacteristic(Characteristic.StatusLowBattery)
+		this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
 			.on('get', (callback) => {
 				callback(null, this.getLowBatteryState());
 			});
@@ -904,14 +932,14 @@ class AlmondSmokeDetector extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.SmokeSensor");
-		let service = accessory.addService(Service.SmokeSensor, device.name);
+		let service = this.acquireService(Service.SmokeSensor, device.name);
 
 		service.getCharacteristic(Characteristic.SmokeDetected)
 			.on('get', (callback) => {
 				callback(null, this.getSmokeDetectorStateState());
 			});
 
-		service.addCharacteristic(Characteristic.StatusLowBattery)
+		this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
 			.on('get', (callback) => {
 				callback(null, this.getSmokeDetectorLowBatteryState());
 			});
@@ -963,7 +991,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.GarageDoorOpener");
-		let service = accessory.addService(Service.GarageDoorOpener, device.name);
+		let service = this.acquireService(Service.GarageDoorOpener, device.name);
 
 		service.getCharacteristic(Characteristic.CurrentDoorState)
 			.on('get', (callback) => {
@@ -1062,7 +1090,7 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.Fan");
-		let service = accessory.addService(Service.Fan, device.name);
+		let service = this.acquireService(Service.Fan, device.name);
 
 		service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
@@ -1073,7 +1101,7 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 				this.setMultilevelSwitchState(value);
 			});
 
-		service.addCharacteristic(Characteristic.RotationSpeed)
+		this.acquireCharacteristic(service, Characteristic.RotationSpeed)
 			.on('get', (callback) => {
 				callback(null, this.getMultilevelSwitchValue());
 			})
@@ -1139,7 +1167,7 @@ class AlmondBinarySwitch extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.Switch");
-		let service = accessory.addService(Service.Switch, device.name);
+		let service = this.acquireService(Service.Switch, device.name);
 
 		service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
@@ -1159,7 +1187,7 @@ class AlmondMultiSwitch extends AlmondAccessory {
 		super(log, accessory, device);
 
 		this.log("+Service.Switch");
-		let service = accessory.addService(Service.Switch, device.name);
+		let service = this.acquireService(Service.Switch, device.name);
 
 		service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
@@ -1171,7 +1199,7 @@ class AlmondMultiSwitch extends AlmondAccessory {
 			});
 
 		this.log("+Service.Switch");
-		service = accessory.addService(Service.Switch, device.name + " Switch 2");
+		service = this.acquireService(Service.Switch, device.name + " Switch 2");
 
 		service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
