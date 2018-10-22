@@ -27,18 +27,25 @@ Then add this to your homebridge `config.json` (updating the host and password).
 
 # Supported Sensors
 
+Some devices from each of these categories are supported:
+
 - Binary switches
 - Lightbulbs
-- Contact sensors
+- Multilevel switches (as lightbulbs)
+- Thermostats
+- Garage door openers
+- Continuous fan controllers
 - Smoke detectors
-- Thermostats (mostly)
+- Contact sensors
+
+Not all devices are supported in each category, as Almond+ doesn't always interpret devices of the same type in the same way. I can only add support for what I can test.
 
 # Warnings
 
-Not everything functions perfectly. I am tailing this fork to my needs. I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately).
+Not everything works perfectly. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern syntax (classes, arrow functions, `const` & `let`, etc.).
 
 # Credits
 - Pablo Poo, on whose fork this plugin is based
 - Thomas Purchas, the original creator of the plugin
 - Timon Reinhard, as Purchas based his Almond Client on Reinhard's [work](https://github.com/timonreinhard/wemo-client)
-- The creators of the [WeMo homebridge platform](https://github.com/rudders/homebridge-platform-wemo), as this plugin is based on their work
+- The creators of the [WeMo homebridge platform](https://github.com/rudders/homebridge-platform-wemo), as this plugin was originally based on their work
