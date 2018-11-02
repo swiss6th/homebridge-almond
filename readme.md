@@ -25,6 +25,33 @@ Then add this to your homebridge `config.json` (updating the host and password).
     ]
 ```
 
+Optionally, you can skip certain devices by their Almond+ device ID, or request that a certain device be setup as a HomeKit Outlet rather than a Switch:
+
+ ```javascript
+    "platforms": [
+        {
+            "platform": "Almond",
+            "name": "Almond Platform",
+            "host":"10.10.10.254",
+            "port": "7681",
+            "username": "root",
+            "password": "frank",
+            "devices": {
+                "10": {
+                    "skip": true
+                },
+                "37": {
+                    "setupAs": "outlet"
+                },
+                "24": {
+                    "skip": false,
+                    "setupAs": "switch"
+                }
+            }
+        }
+    ]
+```
+
 # Supported Sensors
 
 Some devices from each of these categories are supported:

@@ -36,6 +36,14 @@ class AlmondPlatform {
 		})
 	}
 
+	getConfigFlag(id, flag) {
+		const devices = this.config.devices
+		if (devices && id in devices) {
+			return devices[id][flag]
+		}
+		return undefined
+	}
+
 	buildAlmondAccessory(accessory, device) {
 		let almondAccessory
 		switch (device.type) {
@@ -70,7 +78,14 @@ class AlmondPlatform {
 				almondAccessory = new AlmondClick(this.log, accessory, device)
 				break
 			case deviceType.BinarySwitch:
-				almondAccessory = new AlmondBinarySwitch(this.log, accessory, device)
+			case deviceType.UnknownOnOffModule:
+				switch (this.getConfigFlag(device.id, "setupAs")) {
+					case "outlet":
+						almondAccessory = new AlmondOutlet(this.log, accessory, device)
+						break
+					default:
+						almondAccessory = new AlmondBinarySwitch(this.log, accessory, device)
+				}
 				break
 			default:
 				if (device.props.SwitchBinary !== undefined) {
@@ -84,7 +99,12 @@ class AlmondPlatform {
 
 	addAccessory(device) {
 		this.log(`Got device. Name: ${device.name}, ID: ${device.id}, Type: ${device.type}`)
-	
+
+		if (this.getConfigFlag(device.id, "skip")) {
+			this.log("Device skipped by config.")
+			return
+		}
+
 		if (device.props === undefined) {
 			this.log("Device not supported.")
 			return
@@ -146,17 +166,18 @@ class AlmondAccessory {
 		this.device = device
 		this.log = log
 		this.displayName = this.accessory.displayName
-	
+
 		this.log(`Setting up ${this.accessory.displayName}...`)
 
 		this.updateReachability(true)
-	
+
 		this.accessory.getService(Service.AccessoryInformation)
 			.setCharacteristic(Characteristic.Manufacturer, device.manufacturer)
 			.setCharacteristic(Characteristic.Model, device.model)
+			.setCharacteristic(Characteristic.SerialNumber, `${device.name} [${device.id}]`)
 
 		this.accessory.on('identify', this.identifyDevice.bind(this))
-	
+
 		this.observeDevice(device)
 	}
 
@@ -1783,6 +1804,90 @@ class AlmondBinarySwitch extends AlmondAccessory {
 		this.accessory.getService(Service.Switch)
 			.getCharacteristic(Characteristic.On)
 			.updateValue(state)
+	}
+}
+
+class AlmondOutlet extends AlmondAccessory {
+	constructor(log, accessory, device) {
+		super(log, accessory, device)
+
+		this.log("+Service.Outlet")
+		let service = this.acquireService(Service.Outlet, device.name)
+
+		service.getCharacteristic(Characteristic.On)
+			.on('get', (callback) => {
+				callback(null, this.getState())
+			})
+			.on('set', (value, callback) => {
+				callback(null)
+				this.setState(value)
+			})
+
+		service.getCharacteristic(Characteristic.OutletInUse)
+			.on('get', (callback) => {
+				callback(null, this.getUsageState())
+			})
+
+		this.addUpdateListener( (property, value) => {
+			switch (property) {
+				case this.device.props.SwitchBinary:
+					this.updateState(value)
+			}
+		})
+
+		this.log("Found 1 service.")
+	}
+
+	getState() {
+		let state = this.device.getProp(this.device.props.SwitchBinary)
+	
+		this.log(
+			"Getting state for %s... %s [%s]",
+			this.accessory.displayName,
+			state,
+			typeof state
+		)
+
+		return state
+	}
+
+	setState(state) {
+		this.log(
+			"Setting state for %s to %s [%s]",
+			this.accessory.displayName,
+			state,
+			typeof state
+		)
+	
+		this.device.setProp(this.device.props.SwitchBinary, state)
+	}
+
+	updateState(state) {
+		this.log(
+			"Updating state for %s to %s [%s]",
+			this.accessory.displayName,
+			state,
+			typeof state
+		)
+
+		const service = this.accessory.getService(Service.Switch)
+		service.getCharacteristic(Characteristic.On)
+			.updateValue(state)
+		service.getCharacteristic(Characteristic.OutletInUse)
+			.updateValue(state)
+	}
+
+	getUsageState() {
+		let state = this.device.getProp(this.device.props.SwitchBinary)
+	
+		this.log(
+			"Getting usage state for %s... %s [%s]",
+			this.accessory.displayName,
+			state,
+			typeof state
+		)
+
+		return state
 	}
 }
 
