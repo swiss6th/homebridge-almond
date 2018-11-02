@@ -52,6 +52,8 @@ Optionally, you can skip certain devices by their Almond+ device ID, or request 
     ]
 ```
 
+Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it. Then remove the `"skip"` flag and change your `"setupAs"` preference.
+
 # Supported Sensors
 
 Some devices from each of these categories are supported:
