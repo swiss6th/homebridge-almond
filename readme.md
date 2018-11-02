@@ -37,6 +37,7 @@ Some devices from each of these categories are supported:
 - Continuous fan controllers
 - Smoke detectors
 - Contact sensors
+- Almond Click buttons
 
 Not all devices are supported in each category, as Almond+ doesn't always interpret devices of the same type in the same way. I can only add support for what I can test.
 

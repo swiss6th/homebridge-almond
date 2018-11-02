@@ -1,16 +1,14 @@
 "use strict"
 
-const Almond = require('almond-client'),
+const
+	Almond = require('almond-client'),
 	deviceType = require('almond-client/deviceTypes'),
 	deviceProperty = require('almond-client/deviceProperties'),
 	debug = require('debug')('homebridge-platform-almond')
 
-let Accessory,
-	Characteristic,
-	Service,
-	UUIDGen
+let Accessory, Characteristic, Service, UUIDGen
 
-module.exports = function(homebridge) {
+module.exports = homebridge => {
 	Accessory = homebridge.platformAccessory
 	Characteristic = homebridge.hap.Characteristic
 	Service = homebridge.hap.Service
@@ -31,7 +29,6 @@ class AlmondPlatform {
 	
 		this.api.on('didFinishLaunching', () => {
 			this.client = new Almond(this.config)
-
 			this.client.on("ready", () => {
 				this.client.getDevices().forEach(this.addAccessory, this)
 				this._pruneAccessories()
@@ -64,13 +61,13 @@ class AlmondPlatform {
 				almondAccessory = new AlmondGarageDoorOpener(this.log, accessory, device)
 				break
 			case deviceType.GenericPSM:
-				if (
-					device.manufacturer == "GE" &&
-					device.model == "Unknown: type=4944,"
-				) {
+				if (device.manufacturer == "GE" && device.model == "Unknown: type=4944,") {
 					// This is a GE continuous fan controller, which shows up as a siren in the Almond app
 					almondAccessory = new AlmondGenericPsmFan(this.log, accessory, device)
 				}
+				break
+			case deviceType.AlmondClick:
+				almondAccessory = new AlmondClick(this.log, accessory, device)
 				break
 			case deviceType.BinarySwitch:
 				almondAccessory = new AlmondBinarySwitch(this.log, accessory, device)
@@ -86,15 +83,14 @@ class AlmondPlatform {
 	}
 
 	addAccessory(device) {
-		let platform = this
-		this.log("Got device. Name: %s, ID: %s, Type: %s", device.name, device.id, device.type)
+		this.log(`Got device. Name: ${device.name}, ID: ${device.id}, Type: ${device.type}`)
 	
 		if (device.props === undefined) {
 			this.log("Device not supported.")
 			return
 		}
 
-		const uuid = UUIDGen.generate('AlmondDevice: '.concat(device.id))
+		const uuid = UUIDGen.generate(`AlmondDevice: ${device.id}`)
 		const existingAccessory = this.accessories[uuid]
 		let accessory
 
@@ -107,7 +103,7 @@ class AlmondPlatform {
 		const almondAccessory = this.buildAlmondAccessory(accessory, device)
 
 		if (almondAccessory === undefined) {
-			this.log("No services supported: %s [%s]", device.name, device.type)
+			this.log(`No services supported: ${device.name} [${device.type}]`)
 			return
 		}
 
@@ -119,20 +115,20 @@ class AlmondPlatform {
 	}
 	
 	configureAccessory(accessory) {
-		this.log("Configuring Accessory from cache: %s [%s]", accessory.UUID, accessory.displayName)
+		this.log(`Configuring Accessory from cache: ${accessory.UUID} [${accessory.displayName}]`)
 		accessory.updateReachability(true)
 		this.accessories[accessory.UUID] = accessory
 	}
 	
 	_pruneAccessories() {
-		// After we have got all the devices from the Almond, check to see if we have any dead
-		// cached devices and kill them.
+		// After we have got all the devices from the Almond+,
+		// check to see if we have any dead cached devices and kill them.
 		let accessory
 		for (let key in this.accessories) {
 			accessory = this.accessories[key]
-			this.log("Checking existance of %s:", accessory.displayName)
+			this.log(`Checking existance of ${accessory.displayName}:`)
 			if (!(accessory instanceof AlmondAccessory)) {
-				this.log("(-) Did not find device for accessory %s. Removing it.", accessory.displayName)
+				this.log(`(-) Did not find device for accessory ${accessory.displayName}. Removing it.`)
 				this.api.unregisterPlatformAccessories("homebridge-platform-almond", "Almond", [accessory])
 				delete this.accessories[key]
 			} else {
@@ -151,23 +147,15 @@ class AlmondAccessory {
 		this.log = log
 		this.displayName = this.accessory.displayName
 	
-		this.log("Setting up %s...", accessory.displayName)
+		this.log(`Setting up ${this.accessory.displayName}...`)
 
 		this.updateReachability(true)
 	
 		this.accessory.getService(Service.AccessoryInformation)
 			.setCharacteristic(Characteristic.Manufacturer, device.manufacturer)
 			.setCharacteristic(Characteristic.Model, device.model)
-	
-		this.accessory.on('identify', function(paired, callback) {
-			self.log("%s identified", self.accessory.displayName)
-			//removed since not all devices are switch.
-			//ToDo - Add support for all suported accesories
-			//self.getSwitchState(function(err, state) {
-			//    self.setSwitchState(!state)
-			callback()
-			//})
-		})
+
+		this.accessory.on('identify', this.identifyDevice.bind(this))
 	
 		this.observeDevice(device)
 	}
@@ -199,6 +187,12 @@ class AlmondAccessory {
 	}
 
 	observeDevice(device) {
+	}
+
+	// To be overridden in each individual accessory class
+	identifyDevice(paired, callback) {
+		this.log(`${this.accessory.displayName} identified`)
+		callback()
 	}
 }
 
@@ -234,7 +228,6 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 			})
 
 		this.addUpdateListener( (property, value) => {
-			console.log("Responding to valueUpdated for", this.accessory.displayName) //////////////////////////////////////////////////////////
 			switch (property) {
 				case this.device.props.SwitchMultilevel:
 					this.updateSwitchMultilevel(value)
@@ -1790,6 +1783,67 @@ class AlmondBinarySwitch extends AlmondAccessory {
 		this.accessory.getService(Service.Switch)
 			.getCharacteristic(Characteristic.On)
 			.updateValue(state)
+	}
+}
+
+class AlmondClick extends AlmondAccessory {
+	constructor(log, accessory, device) {
+		super(log, accessory, device)
+
+		this.log("+Service.StatelessProgrammableSwitch")
+		let service = this.acquireService(Service.StatelessProgrammableSwitch, device.name)
+
+		service.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+			.on('get', (callback) => {
+				callback(null, this.getPress())
+			})
+
+		this.addUpdateListener( (property, value) => {
+			switch (property) {
+				case this.device.props.Press:
+					this.updatePress(value)
+			}
+		})
+
+		this.log("Found 1 service.")
+	}
+
+	getPress() {
+		const press = this.device.getProp(this.device.props.Press)
+
+		this.log(
+			"Getting press for %s... %s [%s]",
+			this.accessory.displayName,
+			press,
+			typeof press
+		)
+
+		const events = {
+			3: Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
+			0: Characteristic.ProgrammableSwitchEvent.DOUBLE_PRESS,
+			2: Characteristic.ProgrammableSwitchEvent.LONG_PRESS
+		}
+
+		return events[press]
+	}
+
+	updatePress(press) {
+		this.log(
+			"Updating press for %s... %s [%s]",
+			this.accessory.displayName,
+			press,
+			typeof press
+		)
+
+		const events = {
+			3: Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
+			0: Characteristic.ProgrammableSwitchEvent.DOUBLE_PRESS,
+			2: Characteristic.ProgrammableSwitchEvent.LONG_PRESS
+		}
+
+		this.accessory.getService(Service.StatelessProgrammableSwitch)
+			.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+			.updateValue(events[press])
 	}
 }
 
