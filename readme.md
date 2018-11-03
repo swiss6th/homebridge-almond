@@ -18,8 +18,6 @@ Then add this to your homebridge `config.json` (updating the host and password).
             "platform": "Almond",
             "name": "Almond Platform",
             "host":"10.10.10.254",
-            "port": "7681",
-            "username": "root",
             "password": "frank"
         }
     ]
@@ -34,8 +32,6 @@ Optionally, you can skip certain devices by their Almond+ device ID, or request 
             "name": "Almond Platform",
             "host":"10.10.10.254",
             "port": "7681",
-            "username": "root",
-            "password": "frank",
             "devices": {
                 "10": {
                     "skip": true
