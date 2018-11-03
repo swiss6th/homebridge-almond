@@ -31,6 +31,9 @@ class AlmondPlatform {
 			this.client = new Almond(this.config)
 			this.client.on("ready", () => {
 				this.client.getDevices().forEach(this.addAccessory, this)
+				this.client.addDeviceAddedListener(this.processDeviceAdded.bind(this))
+				this.client.addDeviceRemovedListener(this.processDeviceRemoved.bind(this))
+				this.client.addDeviceUpdatedListener(this.processDeviceUpdated.bind(this))
 				this._pruneAccessories()
 			})
 		})
@@ -142,7 +145,30 @@ class AlmondPlatform {
 	
 		this.accessories[uuid] = almondAccessory
 	}
-	
+
+	removeAccessory(device) {
+		for (let key in this.accessories) {
+			let almondAccessory = this.accessories[key]
+			if (almondAccessory.device === device) {
+				this.log(`Removing accessory ${almondAccessory.accessory.displayName}`)
+				this.api.unregisterPlatformAccessories("homebridge-platform-almond", "Almond", [almondAccessory.accessory])
+				delete this.accessories[key]
+				return
+			}
+		}
+	}
+
+	updateAccessory(device) {
+		for (let key in this.accessories) {
+			let almondAccessory = this.accessories[key]
+			if (almondAccessory.device === device) {
+				this.log(`Updating accessory information for ${almondAccessory.accessory.displayName}`)
+				almondAccessory.setAccessoryInformation(device)
+				return
+			}
+		}
+	}
+
 	configureAccessory(accessory) {
 		this.log(`Configuring Accessory from cache: ${accessory.UUID} [${accessory.displayName}]`)
 		accessory.updateReachability(true)
@@ -156,14 +182,25 @@ class AlmondPlatform {
 		for (let key in this.accessories) {
 			accessory = this.accessories[key]
 			this.log(`Checking existance of ${accessory.displayName}:`)
-			if (!(accessory instanceof AlmondAccessory)) {
-				this.log(`(-) Did not find device for accessory ${accessory.displayName}. Removing it.`)
-				this.api.unregisterPlatformAccessories("homebridge-platform-almond", "Almond", [accessory])
-				delete this.accessories[key]
-			} else {
+			if (accessory instanceof AlmondAccessory) {
 				this.log("(+) Device exists.")
+			} else {
+				this.log(`(-) Did not find device for accessory ${accessory.displayName}. Removing it.`)
+				this.removeAccessory(accessory.device)
 			}
 		}
+	}
+
+	processDeviceAdded(device) {
+		this.addAccessory(device)
+	}
+
+	processDeviceRemoved(device) {
+		this.removeAccessory(device)
+	}
+
+	processDeviceUpdated(device) {
+		this.updateAccessory(device)
 	}
 }
 
@@ -179,15 +216,16 @@ class AlmondAccessory {
 		this.log(`Setting up ${this.accessory.displayName}...`)
 
 		this.updateReachability(true)
+		this.setAccessoryInformation(device)
+		this.accessory.on('identify', this.identifyDevice.bind(this))
+		this.observeDevice(device)
+	}
 
+	setAccessoryInformation(device) {
 		this.accessory.getService(Service.AccessoryInformation)
 			.setCharacteristic(Characteristic.Manufacturer, device.manufacturer)
 			.setCharacteristic(Characteristic.Model, device.model)
 			.setCharacteristic(Characteristic.SerialNumber, `${device.name} [${device.id}]`)
-
-		this.accessory.on('identify', this.identifyDevice.bind(this))
-
-		this.observeDevice(device)
 	}
 
 	acquireService(service, name) {
@@ -208,8 +246,8 @@ class AlmondAccessory {
 		}
 	}
 
-	addUpdateListener(listener) {
-		this.device.addUpdateListener(listener)
+	addValueUpdatedListener(listener) {
+		this.device.addValueUpdatedListener(listener)
 	}
 
 	updateReachability(reachable) {
@@ -257,7 +295,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 				this.setBrightness(value)
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.SwitchMultilevel:
 					this.updateSwitchMultilevel(value)
@@ -298,7 +336,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 		if (state) {
 			if (this._cachedBrightness === undefined) {
 				newBrightness = this._DEFAULT_BRIGHTNESS
-				this._cachedBrightness == newBrightness
+				this._cachedBrightness = newBrightness
 			} else {
 				newBrightness = this._cachedBrightness
 			}
@@ -384,7 +422,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 				this.setBrightness(value)
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.SwitchBinary:
 					this.updateSwitchBinary(value)
@@ -562,7 +600,7 @@ class AlmondThermostat extends AlmondAccessory {
 				this.setFanMode(value)
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.Temperature:
 					this.updateCurrentTemperature(value)
@@ -1061,7 +1099,7 @@ class AlmondContactSwitch extends AlmondAccessory {
 				callback(null, this.getLowBatteryState())
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.State:
 					this.updateContactState(value)
@@ -1217,7 +1255,7 @@ class AlmondFireSensor extends AlmondAccessory {
 				callback(null, this.getLowBatteryState())
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.State:
 					this.updateSmokeDetectedState(value)
@@ -1371,7 +1409,7 @@ class AlmondSmokeDetector extends AlmondAccessory {
 				callback(null, this.getLowBatteryState())
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.State:
 					this.updateSmokeDetectedState(value)
@@ -1489,7 +1527,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 				callback(null, this.getObstructionDetected())
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.BarrierOperator:
 					this.updateGarageDoorState(value)
@@ -1650,7 +1688,7 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 				this.setRotationSpeed(value)
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.SwitchMultilevel:
 					this.updateGenericPsmFan(value)
@@ -1768,7 +1806,7 @@ class AlmondBinarySwitch extends AlmondAccessory {
 				this.setState(value)
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.SwitchBinary:
 					this.updateState(value)
@@ -1837,7 +1875,7 @@ class AlmondOutlet extends AlmondAccessory {
 				callback(null, this.getUsageState())
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.SwitchBinary:
 					this.updateState(value)
@@ -1912,7 +1950,7 @@ class AlmondClick extends AlmondAccessory {
 				callback(null, this.getPress())
 			})
 
-		this.addUpdateListener( (property, value) => {
+		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.Press:
 					this.updatePress(value)
