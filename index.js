@@ -2,8 +2,7 @@
 
 const
 	Almond = require('almond-client'),
-	deviceType = require('almond-client/deviceTypes'),
-	deviceProperty = require('almond-client/deviceProperties'),
+	devicePersonalities = require('almond-client/devicePersonalities'),
 	debug = require('debug')('homebridge-platform-almond')
 
 let Accessory, Characteristic, Service, UUIDGen
@@ -22,7 +21,8 @@ class AlmondPlatform {
 		this.log = log
 		this.config = config
 		this.api = api
-	
+
+		this.deviceTypes = this.getDeviceTypes(devicePersonalities)
 		this.accessories = []
 	
 		this.log("Starting up, config: ", config)
@@ -44,7 +44,16 @@ class AlmondPlatform {
 		return undefined
 	}
 
+	getDeviceTypes(personalities) {
+		const types = {}
+		for (let type in personalities) {
+			types[personalities[type].FriendlyDeviceType] = Number(type)
+		}
+		return types
+	}
+
 	buildAlmondAccessory(accessory, device) {
+		const deviceType = this.deviceTypes
 		let almondAccessory
 		switch (device.type) {
 			case deviceType.MultilevelSwitch:
