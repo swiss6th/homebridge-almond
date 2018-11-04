@@ -4,13 +4,13 @@ Almond+ Platform plugin for the amazing [Homebridge](https://github.com/nfarina/
 
 1. Install homebridge using: `npm install -g homebridge`
 2. Install this plugin using: `npm install -g swiss6th/homebridge-almond`
-3. Update your configuration file. See the sample below.
+3. Update your configuration file. See the samples below.
 
 # Configuration
 
-This uses the Almond+ [WebSocket API](https://wiki.securifi.com/index.php/Websockets_Documentation#Devicelist), so you need to be running at least R89 firmware.
+This plugin uses the Almond+ [WebSocket API](https://wiki.securifi.com/index.php/Websockets_Documentation#Devicelist), so you need to be running at least R89 firmware.
 
-Then add this to your homebridge `config.json` (updating the host and password).
+Add this to your homebridge `config.json` (updating the host and password):
 
  ```javascript
     "platforms": [
