@@ -31,7 +31,7 @@ Optionally, you can skip certain devices by their Almond+ device ID, or request 
             "platform": "Almond",
             "name": "Almond Platform",
             "host":"10.10.10.254",
-            "port": "7681",
+            "password": "frank",
             "devices": {
                 "10": {
                     "skip": true
