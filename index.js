@@ -23,7 +23,7 @@ class AlmondPlatform {
 		this.api = api
 
 		this.deviceTypes = this.getDeviceTypes(devicePersonalities)
-		this.accessories = []
+		this.accessories = {}
 	
 		this.log("Starting up, config: ", config)
 	
@@ -37,6 +37,7 @@ class AlmondPlatform {
 				this.client.on("deviceAdded", this.onDeviceAdded.bind(this))
 				this.client.on("deviceRemoved", this.onDeviceRemoved.bind(this))
 				this.client.on("deviceUpdated", this.onDeviceUpdated.bind(this))
+				this.logDeviceSummary()
 			})
 		})
 	}
@@ -117,6 +118,7 @@ class AlmondPlatform {
 					case "outlet":
 						almondAccessory = new AlmondOutlet(this.log, accessory, device)
 						break
+					case "switch":
 					default:
 						almondAccessory = new AlmondBinarySwitch(this.log, accessory, device)
 				}
@@ -161,10 +163,11 @@ class AlmondPlatform {
 			return
 		}
 
+		// Now that the device is configured, add it to HomeKit if not already present
 		if (existingAccessory === undefined) {
 			this.api.registerPlatformAccessories("homebridge-platform-almond", "Almond", [accessory])
 		}
-	
+
 		this.accessories[uuid] = almondAccessory
 	}
 
@@ -193,7 +196,6 @@ class AlmondPlatform {
 
 	configureAccessory(accessory) {
 		this.log(`Configuring Accessory from cache: ${accessory.UUID} [${accessory.displayName}]`)
-//		accessory.updateReachability(true)
 		this.accessories[accessory.UUID] = accessory
 	}
 
@@ -219,6 +221,18 @@ class AlmondPlatform {
 			}
 		}
 	}
+
+	logDeviceSummary() {
+		const accessoryTotal = Object.keys(this.accessories).length
+		let serviceTotal = 0
+		for (const key in this.accessories) {
+			const accessory = this.accessories[key]
+			serviceTotal += Object.keys(accessory.services).length
+		}
+
+		this.log(`Now running with ${accessoryTotal} ${accessoryTotal == 1 ? "accessory" : "accessories"
+			} and ${serviceTotal} ${serviceTotal == 1 ? "service" : "services"}.`)
+	}
 }
 
 // Foundation class for all Almond+ accessories
@@ -229,17 +243,22 @@ class AlmondAccessory {
 		this.device = device
 		this.log = log
 		this.displayName = this.accessory.displayName
+		this.services = {}
+
+		// This is arbitrary and may be overridden in subclasses.
+		// It is used by BatteryService and others.
+		this._LOW_BATTERY_THRESHOLD = 20 // %
 
 		this.log(`Setting up ${this.accessory.displayName}...`)
 
-		this.setAccessoryInformation(device)
+		this.AccessoryInformation = this.setAccessoryInformation(device)
 		this.accessory.on('identify', this.identifyDevice.bind(this))
 		this.observeDevice(device)
 		this.updateReachability(true)
 	}
 
 	setAccessoryInformation(device) {
-		this.accessory.getService(Service.AccessoryInformation)
+		return this.accessory.getService(Service.AccessoryInformation)
 			.setCharacteristic(Characteristic.Manufacturer, device.manufacturer)
 			.setCharacteristic(Characteristic.Model, device.model)
 			.setCharacteristic(Characteristic.SerialNumber, `${device.name} [${device.id}]`)
@@ -274,10 +293,15 @@ class AlmondAccessory {
 	observeDevice(device) {
 	}
 
-	// To be overridden in each individual accessory class
+	// To be overridden in subclasses
 	identifyDevice(paired, callback) {
 		this.log(`${this.accessory.displayName} identified`)
 		callback()
+	}
+
+	logServiceCount() {
+		const serviceCount = Object.keys(this.services).length
+		this.log(`Found ${serviceCount} ${serviceCount == 1 ? "service" : "services"}.`)
 	}
 
 	logGet(propertyString, value, unitsString = '') {
@@ -292,48 +316,43 @@ class AlmondAccessory {
 		this.log(`Updating ${propertyString} for ${this.accessory.displayName} to ${value}${unitsString} [${typeof value}]`)
 	}
 
-	addBatteryService(device, propBatteryLevel, propChargingState, propStatusLowBattery) {
-		this.batteryProperties = {
-			batteryLevel: {id: propBatteryLevel},
-			chargingState: {id: propChargingState},
-			statusLowBattery: {id: propStatusLowBattery}
-		}
-
+	addBatteryService(device, propBatteryLevel = this.device.props.Battery, propStatusLowBattery = this.device.props.Battery) {
 		this.log("+Service.BatteryService")
-		const service = this.acquireService(Service.BatteryService, device.name)
+		const service = this.services.BatteryService = this.acquireService(Service.BatteryService, device.name)
+		this.BatteryService = {}
 
-		service.getCharacteristic(Characteristic.BatteryLevel)
+		this.BatteryService.BatteryLevel = service.getCharacteristic(Characteristic.BatteryLevel)
 			.on('get', (callback) => {
 				callback(null, this.getBatteryLevel())
 			})
 
-		service.getCharacteristic(Characteristic.ChargingState)
+		// Charging state is not provided by any Almond+ devices, but you may override getChargingState() if you need special behavior.
+		// By default, Characteristic.ChargingState.NOT_CHARGEABLE is returned.
+		this.BatteryService.ChargingState = service.getCharacteristic(Characteristic.ChargingState)
 			.on('get', (callback) => {
 				callback(null, this.getChargingState())
 			})
 
-		service.getCharacteristic(Characteristic.StatusLowBattery)
+		this.BatteryService.StatusLowBattery = service.getCharacteristic(Characteristic.StatusLowBattery)
 			.on('get', (callback) => {
 				callback(null, this.getStatusLowBattery())
 			})
 
 		this.addValueUpdatedListener( (property, value) => {
-			switch (property) {
-				case propBatteryLevel:
-					this.updateBatteryLevel(value)
-					break
-				case propChargingState:
-					this.updateChargingState(value)
-					break
-				case propStatusLowBattery:
-					this.updateStatusLowBattery(value)
-			}
+			if (property == propBatteryLevel) this.updateBatteryLevel(value)
+			if (property == propStatusLowBattery) this.updateStatusLowBattery(value)
+			// No handler for charging state, since no Almond+ devices support it
 		})
 	}
 
-	getBatteryLevel() {
-		const property = this.batteryProperties.batteryLevel
-		const level = property !== undefined ? this.device.getProp(property) : 100
+	// Battery methods may be overridden in subclasses.
+	// Otherwise, they read the standard Battery property of Almond+ devices.
+	// Devices with only a LowBattery property should not need a BatteryService.
+	// Instead, add the StatusLowBattery characteristic and deal with it individually.
+
+	getBatteryLevel(prop = this.device.props.Battery) {
+		let level = this.device.getProp(prop)
+		level = level >= 0 && level <= 100 ? level : 0
 
 		this.logGet("battery level", level, "%")
 
@@ -341,23 +360,39 @@ class AlmondAccessory {
 	}
 
 	updateBatteryLevel(level) {
-		
+		if (level >= 0 && level <= 100) {
+			this.logUpdate("battery level", level, "%")
+
+			this.BatteryService.BatteryLevel.updateValue(level)
+		}
+	}
+
+	getStatusLowBattery(prop = this.device.props.Battery) {
+		const status = this.device.getProp(prop) <= this._LOW_BATTERY_THRESHOLD
+			? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+			: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
+
+		this.logGet("low battery state", status)
+
+		return status
+	}
+
+	updateStatusLowBattery(level) {
+		const status = level <= this._LOW_BATTERY_THRESHOLD
+			? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+			: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
+
+		this.logGet("low battery state", status)
+
+		return status
 	}
 
 	getChargingState() {
-		
-	}
+		const state = Characteristic.ChargingState.NOT_CHARGEABLE
 
-	updateChargingState(state) {
-		
-	}
+		this.logGet("charging state", state)
 
-	getStatusLowBattery() {
-		
-	}
-
-	updateStatusLowBattery(status) {
-		
+		return state
 	}
 }
 
@@ -372,9 +407,10 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 		this._cachedBrightness = this._DEFAULT_BRIGHTNESS
 
 		this.log("+Service.Lightbulb (MultilevelSwitch)")
-		let service = this.acquireService(Service.Lightbulb, device.name)
+		const service = this.services.Lightbulb = this.acquireService(Service.Lightbulb, device.name)
+		this.Lightbulb = {}
 
-		service.getCharacteristic(Characteristic.On)
+		this.Lightbulb.On = service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
 				callback(null, this.getState())
 			})
@@ -383,7 +419,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 				this.setState(value)
 			})
 
-		this.acquireCharacteristic(service, Characteristic.Brightness)
+		this.Lightbulb.Brightness = this.acquireCharacteristic(service, Characteristic.Brightness)
 			.on('get', (callback) => {
 				callback(null, this.getBrightness())
 			})
@@ -399,7 +435,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getState() {
@@ -455,16 +491,12 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 	updateSwitchMultilevel(brightness) {
 		this.logUpdate("brightness", brightness, "%")
 
-		let service = this.accessory.getService(Service.Lightbulb)
 		if (brightness == 0) {
-			service.getCharacteristic(Characteristic.On)
-				.updateValue(false)
+			this.Lightbulb.On.updateValue(false)
 		} else if (brightness > 0 && brightness <= 100) {
 			this._cachedBrightness = brightness
-			service.getCharacteristic(Characteristic.Brightness)
-				.updateValue(brightness)
-			service.getCharacteristic(Characteristic.On)
-				.updateValue(true)
+			this.Lightbulb.Brightness.updateValue(brightness)
+			this.Lightbulb.On.updateValue(true)
 		}
 	}
 }
@@ -474,9 +506,10 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.Lightbulb")
-		let service = this.acquireService(Service.Lightbulb, device.name)
+		const service = this.services.Lightbulb = this.acquireService(Service.Lightbulb, device.name)
+		this.Lightbulb = {}
 
-		service.getCharacteristic(Characteristic.On)
+		this.Lightbulb.On = service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
 				callback(null, this.getState())
 			})
@@ -485,7 +518,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 				this.setState(value)
 			})
 
-		this.acquireCharacteristic(service, Characteristic.Brightness)
+		this.Lightbulb.Brightness = this.acquireCharacteristic(service, Characteristic.Brightness)
 			.on('get', (callback) => {
 				callback(null, this.getBrightness())
 			})
@@ -504,7 +537,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getState() {
@@ -517,7 +550,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 	
 	setState(state) {
 		this.logSet("state", state)
-	
+
 		this.device.setProp(this.device.props.SwitchBinary, state)
 	}
 
@@ -539,9 +572,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 	updateSwitchBinary(state) {
 		this.logUpdate("state", state)
 
-		this.accessory.getService(Service.Lightbulb)
-			.getCharacteristic(Characteristic.On)
-			.updateValue(state)
+		this.Lightbulb.On.updateValue(state)
 	}
 
 	updateSwitchMultilevel(brightness) {
@@ -549,16 +580,12 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 
 		this.logUpdate("brightness", newBrightness, "%")
 
-		let service = this.accessory.getService(Service.Lightbulb)
 //		if (brightness == 0) {
-//			service.getCharacteristic(Characteristic.On)
-//				.updateValue(false)
+//			this.Lightbulb.On.updateValue(false)
 //		} else if (value > 0 && value <= 100) {
 //			this._cachedBrightness = value
-			service.getCharacteristic(Characteristic.Brightness)
-				.updateValue(newBrightness)
-//			service.getCharacteristic(Characteristic.On)
-//				.updateValue(true)
+		this.Lightbulb.Brightness.updateValue(newBrightness)
+//			this.Lightbulb.On.updateValue(true)
 //		}
 	}
 }
@@ -568,14 +595,15 @@ class AlmondThermostat extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.Thermostat")
-		let service = this.acquireService(Service.Thermostat, device.name)
+		let service = this.services.Thermostat = this.acquireService(Service.Thermostat, device.name)
+		this.Thermostat = {}
 
-		service.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
+		this.Thermostat.CurrentHeatingCoolingState = service.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
 			.on('get', (callback) => {
 				callback(null, this.getCurrentHeatingCoolingState())
 			})
 
-		service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
+		this.Thermostat.TargetHeatingCoolingState = service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
 			.on('get', (callback) => {
 				callback(null, this.getTargetHeatingCoolingState())
 			})
@@ -584,12 +612,12 @@ class AlmondThermostat extends AlmondAccessory {
 				this.setTargetHeatingCoolingState(value)
 			})
 
-		service.getCharacteristic(Characteristic.CurrentTemperature)
+		this.Thermostat.CurrentTemperature = service.getCharacteristic(Characteristic.CurrentTemperature)
 			.on('get', (callback) => {
 				callback(null, this.getCurrentTemperature())
 			})
 
-		service.getCharacteristic(Characteristic.TargetTemperature)
+		this.Thermostat.TargetTemperature = service.getCharacteristic(Characteristic.TargetTemperature)
 			.on('get', (callback) => {
 				callback(null, this.getTargetTemperature())
 			})
@@ -598,7 +626,7 @@ class AlmondThermostat extends AlmondAccessory {
 				this.setTargetTemperature(value)
 			})
 
-		service.getCharacteristic(Characteristic.TemperatureDisplayUnits)
+		this.Thermostat.TemperatureDisplayUnits = service.getCharacteristic(Characteristic.TemperatureDisplayUnits)
 			.on('get', (callback) => {
 				callback(null, this.getTemperatureDisplayUnits())
 			})
@@ -607,12 +635,12 @@ class AlmondThermostat extends AlmondAccessory {
 				this.setTemperatureDisplayUnits(value)
 			})
 
-		this.acquireCharacteristic(service, Characteristic.CurrentRelativeHumidity)
+		this.Thermostat.CurrentRelativeHumidity = this.acquireCharacteristic(service, Characteristic.CurrentRelativeHumidity)
 			.on('get', (callback) => {
 				callback(null, this.getCurrentRelativeHumidity())
 			})
 
-		this.acquireCharacteristic(service, Characteristic.CoolingThresholdTemperature)
+		this.Thermostat.CoolingThresholdTemperature = this.acquireCharacteristic(service, Characteristic.CoolingThresholdTemperature)
 			.on('get', (callback) => {
 				callback(null, this.getCoolingThresholdTemperature())
 			})
@@ -621,7 +649,7 @@ class AlmondThermostat extends AlmondAccessory {
 				this.setCoolingThresholdTemperature(value)
 			})
 
-		this.acquireCharacteristic(service, Characteristic.HeatingThresholdTemperature)
+		this.Thermostat.HeatingThresholdTemperature = this.acquireCharacteristic(service, Characteristic.HeatingThresholdTemperature)
 			.on('get', (callback) => {
 				callback(null, this.getHeatingThresholdTemperature())
 			})
@@ -631,9 +659,10 @@ class AlmondThermostat extends AlmondAccessory {
 			})
 
 		this.log("+Service.Fan")
-		service = this.acquireService(Service.Fan, device.name + " Fan")
+		service = this.services.Fan = this.acquireService(Service.Fan, device.name + " Fan")
+		this.Fan = {}
 
-		service.getCharacteristic(Characteristic.On)
+		this.Fan.On = service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
 				callback(null, this.getFanMode())
 			})
@@ -670,7 +699,9 @@ class AlmondThermostat extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 2 services.")
+		this.addBatteryService(this.device)
+
+		this.logServiceCount()
 	}
 
 	toHomekitTemperature(temperature) { // Typically for values heading to HomeKit
@@ -717,9 +748,7 @@ class AlmondThermostat extends AlmondAccessory {
 	
 		this.logUpdate("current operating state", state)
 
-		this.accessory.getService(Service.Thermostat)
-			.getCharacteristic(Characteristic.CurrentHeatingCoolingState)
-			.updateValue(states[state])
+		this.Thermostat.CurrentHeatingCoolingState.updateValue(states[state])
 	}
 
 	getTargetHeatingCoolingState() {
@@ -764,9 +793,7 @@ class AlmondThermostat extends AlmondAccessory {
 		}
 		targetTemperature = this.toHomekitTemperature(targetTemperature)
 
-		this.accessory.getService(Service.Thermostat)
-			.getCharacteristic(Characteristic.TargetTemperature)
-			.updateValue(targetTemperature)
+		this.Thermostat.TargetTemperature.updateValue(targetTemperature)
 	}
 
 	updateTargetHeatingCoolingState(state) {
@@ -795,11 +822,8 @@ class AlmondThermostat extends AlmondAccessory {
 		}
 		targetTemperature = this.toHomekitTemperature(targetTemperature)
 
-		const service = this.accessory.getService(Service.Thermostat)
-		service.getCharacteristic(Characteristic.TargetTemperature)
-			.updateValue(targetTemperature)
-		service.getCharacteristic(Characteristic.TargetHeatingCoolingState)
-			.updateValue(states[state])
+		this.Thermostat.TargetTemperature.updateValue(targetTemperature)
+		this.Thermostat.TargetHeatingCoolingState.updateValue(states[state])
 	}
 
 	getCurrentTemperature() {
@@ -816,9 +840,7 @@ class AlmondThermostat extends AlmondAccessory {
 
 		this.logUpdate("current temperature", temperature, "° C")
 
-		this.accessory.getService(Service.Thermostat)
-			.getCharacteristic(Characteristic.CurrentTemperature)
-			.updateValue(temperature)
+		this.Thermostat.CurrentTemperature.updateValue(temperature)
 	}
 	
 	getTargetTemperature() {
@@ -885,9 +907,7 @@ class AlmondThermostat extends AlmondAccessory {
 	
 		this.logUpdate("temperature display units", `degrees ${unitTypes[units]}`)
 
-		this.accessory.getService(Service.Thermostat)
-			.getCharacteristic(Characteristic.TemperatureDisplayUnits)
-			.updateValue(unitTypes[units])
+		this.Thermostat.TemperatureDisplayUnits.updateValue(unitTypes[units])
 	}
 
 	getCurrentRelativeHumidity() {
@@ -904,9 +924,7 @@ class AlmondThermostat extends AlmondAccessory {
 
 		this.logUpdate("current relative humidity", humidity, "%")
 
-		this.accessory.getService(Service.Thermostat)
-			.getCharacteristic(Characteristic.CurrentRelativeHumidity)
-			.updateValue(humidity)
+		this.Thermostat.CurrentRelativeHumidity.updateValue(humidity)
 	}
 
 	getCoolingThresholdTemperature() {
@@ -934,14 +952,11 @@ class AlmondThermostat extends AlmondAccessory {
 
 		this.logUpdate("cooling threshold temperature", coolingTemperature, "° C")
 
-		const service = this.accessory.getService(Service.Thermostat)
-		service.getCharacteristic(Characteristic.CoolingThresholdTemperature)
-			.updateValue(coolingTemperature)
+		this.Thermostat.CoolingThresholdTemperature.updateValue(coolingTemperature)
 
 		const mode = this.device.getProp(this.device.props.Mode)
 		if (mode == "Cool") {
-			service.getCharacteristic(Characteristic.TargetTemperature)
-				.updateValue(coolingTemperature)
+			this.Thermostat.TargetTemperature.updateValue(coolingTemperature)
 		}
 	}
 	
@@ -970,14 +985,11 @@ class AlmondThermostat extends AlmondAccessory {
 
 		this.logUpdate("heating threshold temperature", heatingTemperature, "° C")
 
-		const service = this.accessory.getService(Service.Thermostat)
-		service.getCharacteristic(Characteristic.HeatingThresholdTemperature)
-			.updateValue(heatingTemperature)
+		this.Thermostat.HeatingThresholdTemperature.updateValue(heatingTemperature)
 
 		const mode = this.device.getProp(this.device.props.Mode)
 		if (mode == "Heat") {
-			service.getCharacteristic(Characteristic.TargetTemperature)
-				.updateValue(heatingTemperature)
+			this.Thermostat.TargetTemperature.updateValue(heatingTemperature)
 		}
 	}
 
@@ -998,9 +1010,7 @@ class AlmondThermostat extends AlmondAccessory {
 	updateFanMode(mode) {
 		this.logUpdate("fan mode", mode)
 
-		this.accessory.getService(Service.Fan)
-			.getCharacteristic(Characteristic.On)
-			.updateValue(mode == "On Low")
+		this.Fan.On.updateValue(mode == "On Low")
 	}
 }
 
@@ -1009,19 +1019,20 @@ class AlmondContactSwitch extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.ContactSensor")
-		let service = this.acquireService(Service.ContactSensor, device.name)
+		const service = this.services.ContactSensor = this.acquireService(Service.ContactSensor, device.name)
+		this.ContactSensor = {}
 
-		service.getCharacteristic(Characteristic.ContactSensorState)
+		this.ContactSensor.ContactSensorState = service.getCharacteristic(Characteristic.ContactSensorState)
 			.on('get', (callback) => {
 				callback(null, this.getContactState())
 			})
 
-		this.acquireCharacteristic(service, Characteristic.StatusTampered)
+		this.ContactSensor.StatusTampered = this.acquireCharacteristic(service, Characteristic.StatusTampered)
 			.on('get', (callback) => {
 				callback(null, this.getTamperState())
 			})
 
-		this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
+		this.ContactSensor.StatusLowBattery = this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
 			.on('get', (callback) => {
 				callback(null, this.getLowBatteryState())
 			})
@@ -1039,7 +1050,7 @@ class AlmondContactSwitch extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getContactState() {
@@ -1066,9 +1077,7 @@ class AlmondContactSwitch extends AlmondAccessory {
 
 		this.logUpdate("contact state", states[state])
 
-		this.accessory.getService(Service.ContactSensor)
-			.getCharacteristic(Characteristic.ContactSensorState)
-			.updateValue(states[state])
+		this.ContactSensor.ContactSensorState.updateValue(states[state])
 	}
 
 	getTamperState() {
@@ -1095,9 +1104,7 @@ class AlmondContactSwitch extends AlmondAccessory {
 
 		this.logUpdate("tamper state", states[state])
 
-		this.accessory.getService(Service.ContactSensor)
-			.getCharacteristic(Characteristic.StatusTampered)
-			.updateValue(states[state])
+		this.ContactSensor.StatusTampered.updateValue(states[state])
 	}
 
 	getLowBatteryState() {
@@ -1124,9 +1131,7 @@ class AlmondContactSwitch extends AlmondAccessory {
 
 		this.logUpdate("low battery state", states[state])
 
-		this.accessory.getService(Service.ContactSensor)
-			.getCharacteristic(Characteristic.StatusLowBattery)
-			.updateValue(states[state])
+		this.ContactSensor.StatusLowBattery.updateValue(states[state])
 	}
 }
 
@@ -1135,19 +1140,20 @@ class AlmondFireSensor extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.SmokeSensor (FireSensor)")
-		let service = this.acquireService(Service.SmokeSensor, device.name)
+		const service = this.services.SmokeSensor = this.acquireService(Service.SmokeSensor, device.name)
+		this.SmokeSensor = {}
 
-		service.getCharacteristic(Characteristic.SmokeDetected)
+		this.SmokeSensor.SmokeDetected = service.getCharacteristic(Characteristic.SmokeDetected)
 			.on('get', (callback) => {
 				callback(null, this.getSmokeDetectedState())
 			})
 
-		this.acquireCharacteristic(service, Characteristic.StatusTampered)
+		this.SmokeSensor.StatusTampered = this.acquireCharacteristic(service, Characteristic.StatusTampered)
 			.on('get', (callback) => {
 				callback(null, this.getTamperState())
 			})
 
-		this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
+		this.SmokeSensor.StatusLowBattery = this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
 			.on('get', (callback) => {
 				callback(null, this.getLowBatteryState())
 			})
@@ -1165,7 +1171,7 @@ class AlmondFireSensor extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getSmokeDetectedState() {
@@ -1192,9 +1198,7 @@ class AlmondFireSensor extends AlmondAccessory {
 	
 		this.logUpdate("smoke detection state", states[state])
 
-		this.accessory.getService(Service.SmokeSensor)
-			.getCharacteristic(Characteristic.SmokeDetected)
-			.updateValue(states[state])
+		this.SmokeSensor.SmokeDetected.updateValue(states[state])
 	}
 
 	getTamperState() {
@@ -1221,9 +1225,7 @@ class AlmondFireSensor extends AlmondAccessory {
 
 		this.logUpdate("tamper state", states[state])
 
-		this.accessory.getService(Service.SmokeSensor)
-			.getCharacteristic(Characteristic.StatusTampered)
-			.updateValue(states[state])
+		this.SmokeSensor.StatusTampered.updateValue(states[state])
 	}
 
 	getLowBatteryState() {
@@ -1250,9 +1252,7 @@ class AlmondFireSensor extends AlmondAccessory {
 
 		this.logUpdate("low battery state", states[state])
 
-		this.accessory.getService(Service.SmokeSensor)
-			.getCharacteristic(Characteristic.StatusLowBattery)
-			.updateValue(states[state])
+		this.SmokeSensor.StatusLowBattery.updateValue(states[state])
 	}
 }
 
@@ -1260,33 +1260,25 @@ class AlmondSmokeDetector extends AlmondAccessory {
 	constructor(log, accessory, device) {
 		super(log, accessory, device)
 
-		// Value below which battery is considered low (arbitrary)
-		this._LOW_BATTERY_THRESHOLD = 20
-
 		this.log("+Service.SmokeSensor (SmokeDetector)")
-		let service = this.acquireService(Service.SmokeSensor, device.name)
+		const service = this.services.SmokeSensor = this.acquireService(Service.SmokeSensor, device.name)
+		this.SmokeSensor = {}
 
-		service.getCharacteristic(Characteristic.SmokeDetected)
+		this.SmokeSensor.SmokeDetected = service.getCharacteristic(Characteristic.SmokeDetected)
 			.on('get', (callback) => {
 				callback(null, this.getSmokeDetectedState())
-			})
-
-		this.acquireCharacteristic(service, Characteristic.StatusLowBattery)
-			.on('get', (callback) => {
-				callback(null, this.getLowBatteryState())
 			})
 
 		this.addValueUpdatedListener( (property, value) => {
 			switch (property) {
 				case this.device.props.State:
 					this.updateSmokeDetectedState(value)
-					break
-				case this.device.props.LowBattery:
-					this.updateLowBatteryState(value)
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.addBatteryService(this.device)
+
+		this.logServiceCount()
 	}
 	
 	getSmokeDetectedState() {
@@ -1313,38 +1305,7 @@ class AlmondSmokeDetector extends AlmondAccessory {
 	
 		this.logUpdate("smoke detection state", states[state])
 
-		this.accessory.getService(Service.SmokeSensor)
-			.getCharacteristic(Characteristic.SmokeDetected)
-			.updateValue(states[state])
-	}
-
-	getLowBatteryState() {
-		let state = this.device.getProp(this.device.props.Battery) <= this._LOW_BATTERY_THRESHOLD
-		state = Number(state)
-	
-		const states = [
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-		]
-	
-		this.logGet("low battery state", states[state])
-
-		return states[state]
-	}
-
-	updateLowBatteryState(state) {
-		state = Number(state <= this._LOW_BATTERY_THRESHOLD)
-
-		const states = [
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-		]
-
-		this.logUpdate("low battery state", states[state])
-
-		this.accessory.getService(Service.SmokeSensor)
-			.getCharacteristic(Characteristic.StatusLowBattery)
-			.updateValue(states[state])
+		this.SmokeSensor.SmokeDetected.updateValue(states[state])
 	}
 }
 
@@ -1353,14 +1314,15 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.GarageDoorOpener")
-		let service = this.acquireService(Service.GarageDoorOpener, device.name)
+		const service = this.services.GarageDoorOpener = this.acquireService(Service.GarageDoorOpener, device.name)
+		this.GarageDoorOpener = {}
 
-		service.getCharacteristic(Characteristic.CurrentDoorState)
+		this.GarageDoorOpener.CurrentDoorState = service.getCharacteristic(Characteristic.CurrentDoorState)
 			.on('get', (callback) => {
 				callback(null, this.getCurrentDoorState())
 			})
 
-		service.getCharacteristic(Characteristic.TargetDoorState)
+		this.GarageDoorOpener.TargetDoorState = service.getCharacteristic(Characteristic.TargetDoorState)
 			.on('get', (callback) => {
 				callback(null, this.getTargetDoorState())
 			})
@@ -1369,7 +1331,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 				this.setTargetDoorState(value)
 			})
 
-		service.getCharacteristic(Characteristic.ObstructionDetected)
+		this.GarageDoorOpener.ObstructionDetected = service.getCharacteristic(Characteristic.ObstructionDetected)
 			.on('get', (callback) => {
 				callback(null, this.getObstructionDetected())
 			})
@@ -1381,7 +1343,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getCurrentDoorState() {
@@ -1442,41 +1404,28 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 	updateGarageDoorState(state) {
 		this.logUpdate("door state", state)
 
-		const service = this.accessory.getService(Service.GarageDoorOpener)
 		switch (state) {
 			case 0:
-				service.getCharacteristic(Characteristic.ObstructionDetected)
-					.updateValue(false)
-				service.getCharacteristic(Characteristic.TargetDoorState)
-					.updateValue(Characteristic.TargetDoorState.CLOSED)
-				service.getCharacteristic(Characteristic.CurrentDoorState)
-					.updateValue(Characteristic.CurrentDoorState.CLOSED)
+				this.GarageDoorOpener.ObstructionDetected.updateValue(false)
+				this.GarageDoorOpener.TargetDoorState.updateValue(Characteristic.TargetDoorState.CLOSED)
+				this.GarageDoorOpener.CurrentDoorState.updateValue(Characteristic.CurrentDoorState.CLOSED)
 				break
 			case 252:
-				service.getCharacteristic(Characteristic.TargetDoorState)
-					.updateValue(Characteristic.TargetDoorState.CLOSED)
-				service.getCharacteristic(Characteristic.CurrentDoorState)
-					.updateValue(Characteristic.CurrentDoorState.CLOSING)
+				this.GarageDoorOpener.TargetDoorState.updateValue(Characteristic.TargetDoorState.CLOSED)
+				this.GarageDoorOpener.CurrentDoorState.updateValue(Characteristic.CurrentDoorState.CLOSING)
 				break
 			case 253:
-				service.getCharacteristic(Characteristic.CurrentDoorState)
-					.updateValue(Characteristic.CurrentDoorState.STOPPED)
-				service.getCharacteristic(Characteristic.ObstructionDetected)
-					.updateValue(true)
+				this.GarageDoorOpener.CurrentDoorState.updateValue(Characteristic.CurrentDoorState.STOPPED)
+				this.GarageDoorOpener.ObstructionDetected.updateValue(true)
 				break
 			case 254:
-				service.getCharacteristic(Characteristic.TargetDoorState)
-					.updateValue(Characteristic.TargetDoorState.OPEN)
-				service.getCharacteristic(Characteristic.CurrentDoorState)
-					.updateValue(Characteristic.CurrentDoorState.OPENING)
+				this.GarageDoorOpener.TargetDoorState.updateValue(Characteristic.TargetDoorState.OPEN)
+				this.GarageDoorOpener.CurrentDoorState.updateValue(Characteristic.CurrentDoorState.OPENING)
 				break
 			case 255:
-				service.getCharacteristic(Characteristic.ObstructionDetected)
-					.updateValue(false)
-				service.getCharacteristic(Characteristic.TargetDoorState)
-					.updateValue(Characteristic.TargetDoorState.OPEN)
-				service.getCharacteristic(Characteristic.CurrentDoorState)
-					.updateValue(Characteristic.CurrentDoorState.OPEN)
+				this.GarageDoorOpener.ObstructionDetected.updateValue(false)
+				this.GarageDoorOpener.TargetDoorState.updateValue(Characteristic.TargetDoorState.OPEN)
+				this.GarageDoorOpener.CurrentDoorState.updateValue(Characteristic.CurrentDoorState.OPEN)
 		}
 	}
 }
@@ -1490,9 +1439,10 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 		this._cachedSpeed = this._DEFAULT_SPEED
 
 		this.log("+Service.Fan")
-		let service = this.acquireService(Service.Fan, device.name)
+		const service = this.services.Fan = this.acquireService(Service.Fan, device.name)
+		this.Fan = {}
 
-		service.getCharacteristic(Characteristic.On)
+		this.Fan.On = service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
 				callback(null, this.getState())
 			})
@@ -1501,7 +1451,7 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 				this.setState(value)
 			})
 
-		this.acquireCharacteristic(service, Characteristic.RotationSpeed)
+		this.Fan.RotationSpeed = this.acquireCharacteristic(service, Characteristic.RotationSpeed)
 			.on('get', (callback) => {
 				callback(null, this.getRotationSpeed())
 			})
@@ -1517,7 +1467,7 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getState() {
@@ -1573,16 +1523,12 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 	updateGenericPsmFan(speed) {
 		this.logUpdate("rotation speed", speed, "%")
 
-		let service = this.accessory.getService(Service.Fan)
 		if (speed == 0) {
-			service.getCharacteristic(Characteristic.On)
-				.updateValue(false)
+			this.Fan.On.updateValue(false)
 		} else if (speed > 0 && speed <= 100) {
 			this._cachedSpeed = speed
-			service.getCharacteristic(Characteristic.RotationSpeed)
-				.updateValue(speed)
-			service.getCharacteristic(Characteristic.On)
-				.updateValue(true)
+			this.Fan.RotationSpeed.updateValue(speed)
+			this.Fan.On.updateValue(true)
 		}
 	}
 }
@@ -1592,9 +1538,10 @@ class AlmondBinarySwitch extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.Switch")
-		let service = this.acquireService(Service.Switch, device.name)
+		const service = this.services.Switch = this.acquireService(Service.Switch, device.name)
+		this.Switch = {}
 
-		service.getCharacteristic(Characteristic.On)
+		this.Switch.On = service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
 				callback(null, this.getState())
 			})
@@ -1610,7 +1557,7 @@ class AlmondBinarySwitch extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getState() {
@@ -1630,9 +1577,7 @@ class AlmondBinarySwitch extends AlmondAccessory {
 	updateState(state) {
 		this.logUpdate("state", state)
 
-		this.accessory.getService(Service.Switch)
-			.getCharacteristic(Characteristic.On)
-			.updateValue(state)
+		this.Switch.On.updateValue(state)
 	}
 }
 
@@ -1641,9 +1586,10 @@ class AlmondOutlet extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.Outlet")
-		let service = this.acquireService(Service.Outlet, device.name)
+		const service = this.services.Outlet = this.acquireService(Service.Outlet, device.name)
+		this.Outlet = {}
 
-		service.getCharacteristic(Characteristic.On)
+		this.Outlet.On = service.getCharacteristic(Characteristic.On)
 			.on('get', (callback) => {
 				callback(null, this.getState())
 			})
@@ -1652,7 +1598,7 @@ class AlmondOutlet extends AlmondAccessory {
 				this.setState(value)
 			})
 
-		service.getCharacteristic(Characteristic.OutletInUse)
+		this.Outlet.OutletInUse = service.getCharacteristic(Characteristic.OutletInUse)
 			.on('get', (callback) => {
 				callback(null, this.getUsageState())
 			})
@@ -1664,7 +1610,7 @@ class AlmondOutlet extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getState() {
@@ -1684,11 +1630,8 @@ class AlmondOutlet extends AlmondAccessory {
 	updateState(state) {
 		this.logUpdate("state", state)
 
-		const service = this.accessory.getService(Service.Switch)
-		service.getCharacteristic(Characteristic.On)
-			.updateValue(state)
-		service.getCharacteristic(Characteristic.OutletInUse)
-			.updateValue(state)
+		this.Outlet.On.updateValue(state)
+		this.Outlet.OutletInUse.updateValue(state)
 	}
 
 	getUsageState() {
@@ -1705,9 +1648,10 @@ class AlmondClick extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.log("+Service.StatelessProgrammableSwitch")
-		let service = this.acquireService(Service.StatelessProgrammableSwitch, device.name)
+		const service = this.services.StatelessProgrammableSwitch = this.acquireService(Service.StatelessProgrammableSwitch, device.name)
+		this.StatelessProgrammableSwitch = {}
 
-		service.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+		this.StatelessProgrammableSwitch.ProgrammableSwitchEvent = service.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
 			.on('get', (callback) => {
 				callback(null, this.getPress())
 			})
@@ -1719,7 +1663,7 @@ class AlmondClick extends AlmondAccessory {
 			}
 		})
 
-		this.log("Found 1 service.")
+		this.logServiceCount()
 	}
 
 	getPress() {
@@ -1745,9 +1689,7 @@ class AlmondClick extends AlmondAccessory {
 			2: Characteristic.ProgrammableSwitchEvent.LONG_PRESS
 		}
 
-		this.accessory.getService(Service.StatelessProgrammableSwitch)
-			.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
-			.updateValue(events[press])
+		this.StatelessProgrammableSwitch.ProgrammableSwitchEvent.updateValue(events[press])
 	}
 }
 
