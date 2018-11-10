@@ -379,7 +379,7 @@ class AlmondAccessory {
 	// Instead, add the StatusLowBattery characteristic and deal with it individually.
 
 	getBatteryLevel(property = this.device.props.Battery) {
-		const level = this.device.getProp(property)
+		let level = this.device.getProp(property)
 		level = level >= 0 && level <= 100 ? level : 0
 
 		this.logGet("battery level", level, "%")
@@ -618,6 +618,27 @@ class AlmondThermostat extends AlmondAccessory {
 		return temperature
 	}
 
+	calculateTargetTemperature(mode = this.device.getProp(this.device.props.Mode)) {
+		let targetTemperature = 0
+
+		switch (mode) {
+			case "Heat":
+				targetTemperature = this.device.getProp(this.device.props.SetpointHeating)
+				break
+			case "Cool":
+				targetTemperature = this.device.getProp(this.device.props.SetpointCooling)
+				break
+			case "Auto":
+			case "Off":
+				// This is bogus, but we have to give an answer
+				const heatingTemperature = this.device.getProp(this.device.props.SetpointHeating)
+				const coolingTemperature = this.device.getProp(this.device.props.SetpointCooling)
+				targetTemperature = Number(((heatingTemperature + coolingTemperature) / 2).toFixed(1))
+		}
+
+		return this.toHomekitTemperature(targetTemperature)
+	}
+
 	getCurrentHeatingCoolingState(property) {
 		const state = this.device.getProp(property)
 
@@ -660,32 +681,18 @@ class AlmondThermostat extends AlmondAccessory {
 	}
 
 	setTargetHeatingCoolingState(property, state) {
-		this.logSet("target operating mode", state)
-
 		const states = []
 		states[Characteristic.TargetHeatingCoolingState.OFF] = "Off"
 		states[Characteristic.TargetHeatingCoolingState.HEAT] = "Heat"
 		states[Characteristic.TargetHeatingCoolingState.COOL] = "Cool"
 		states[Characteristic.TargetHeatingCoolingState.AUTO] = "Auto"
 
+		this.logSet("target operating mode", states[state])
 		this.device.setProp(property, states[state])
 
-		// This logic is based on this.getTargetTemperature().
-		// It is repeated here in order to provide an immediate update to HomeKit.
-		const mode = states[state]
-		let targetTemperature = 0
-		if (mode == "Heat") {
-			targetTemperature = this.device.getProp(this.device.props.SetpointHeating)
-		} else if (mode == "Cool") {
-			targetTemperature = this.device.getProp(this.device.props.SetpointCooling)
-		} else if (mode == "Auto" || mode == "Off") {
-			// This is bogus, but we have to give an answer
-			const heatingTemperature = this.device.getProp(this.device.props.SetpointHeating)
-			const coolingTemperature = this.device.getProp(this.device.props.SetpointCooling)
-			targetTemperature = Number(((heatingTemperature + coolingTemperature) / 2).toFixed(1))
-		}
-		targetTemperature = this.toHomekitTemperature(targetTemperature)
+		const targetTemperature = this.calculateTargetTemperature(states[state])
 
+		this.logUpdate("target temperature", targetTemperature, "° C")
 		this.Thermostat.TargetTemperature.updateValue(targetTemperature)
 	}
 
@@ -697,24 +704,11 @@ class AlmondThermostat extends AlmondAccessory {
 			"Auto": Characteristic.TargetHeatingCoolingState.AUTO
 		}
 
-		// This logic is based on this.getTargetTemperature().
-		// It is repeated here in order to provide an immediate update to HomeKit.
-		const mode = state
-		let targetTemperature = 0
-		if (mode == "Heat") {
-			targetTemperature = this.device.getProp(this.device.props.SetpointHeating)
-		} else if (mode == "Cool") {
-			targetTemperature = this.device.getProp(this.device.props.SetpointCooling)
-		} else if (mode == "Auto" || mode == "Off") {
-			// This is bogus, but we have to give an answer
-			const heatingTemperature = this.device.getProp(this.device.props.SetpointHeating)
-			const coolingTemperature = this.device.getProp(this.device.props.SetpointCooling)
-			targetTemperature = Number(((heatingTemperature + coolingTemperature) / 2).toFixed(1))
-		}
-		targetTemperature = this.toHomekitTemperature(targetTemperature)
-
 		this.logUpdate("target operating mode", state)
 		characteristic.updateValue(states[state])
+
+		const targetTemperature = this.calculateTargetTemperature(state)
+
 		this.logUpdate("target temperature", targetTemperature, "° C")
 		this.Thermostat.TargetTemperature.updateValue(targetTemperature)
 	}
@@ -737,20 +731,8 @@ class AlmondThermostat extends AlmondAccessory {
 	}
 	
 	getTargetTemperature(property) {
-		const mode = this.device.getProp(this.device.props.Mode)
-		let targetTemperature = 0
-		if (mode == "Heat") {
-			targetTemperature = this.device.getProp(this.device.props.SetpointHeating)
-		} else if (mode == "Cool") {
-			targetTemperature = this.device.getProp(this.device.props.SetpointCooling)
-		} else if (mode == "Auto" || mode == "Off") {
-			// This is bogus, but we have to give an answer
-			const heatingTemperature = this.device.getProp(this.device.props.SetpointHeating)
-			const coolingTemperature = this.device.getProp(this.device.props.SetpointCooling)
-			targetTemperature = Number(((heatingTemperature + coolingTemperature) / 2).toFixed(1))
-		}
-		targetTemperature = this.toHomekitTemperature(targetTemperature)
-	
+		const targetTemperature = this.calculateTargetTemperature()
+
 		this.logGet("target temperature", targetTemperature, "° C")
 
 		return targetTemperature
