@@ -68,7 +68,7 @@ Not all devices are supported in each category, as Almond+ doesn't always interp
 
 # Warnings
 
-Not everything works perfectly. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern syntax (classes, arrow functions, `const` & `let`, etc.).
+Not everything works perfectly. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern ES6 syntax (classes, arrow functions, `const` & `let`, spread, etc.).
 
 # Credits
 - Pablo Poo, on whose fork this plugin is based
