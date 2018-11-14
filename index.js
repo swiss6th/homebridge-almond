@@ -266,10 +266,19 @@ class AlmondAccessory {
 			.setCharacteristic(Characteristic.SerialNumber, `${device.name} [${device.id}]`)
 	}
 
-	acquireService(service, name) {
-		const existingService = this.accessory.getService(service)
+	acquireService(service, subtype, name) {
+		let existingService
+
+		if (subtype) {
+			existingService = this.accessory.getService(subtype)
+		}
+
 		if (existingService === undefined) {
-			return this.accessory.addService(service, name)
+			existingService = this.accessory.getService(service)
+		}
+
+		if (existingService === undefined) {
+			return this.accessory.addService(service, name, subtype)
 		} else {
 			return existingService
 		}
@@ -281,6 +290,76 @@ class AlmondAccessory {
 			return service.addCharacteristic(characteristic)
 		} else {
 			return existingCharacteristic
+		}
+	}
+
+	calculateServiceIdString(serviceString = '', subtype = '') {
+		return serviceString + (subtype.length > 0 ? '_' + subtype : '')
+	}
+
+	extractServiceString(serviceIdString = '') {
+		return serviceIdString.split('_')[0]
+	}
+
+	extractSubtypeString(serviceIdString) {
+		return serviceIdString.split('_')[1]
+	}
+
+	setupService(serviceString, subtypeString) {
+		if (typeof serviceString !== 'string' || serviceString === '') return
+
+		const service = this.acquireService(Service[serviceString], subtypeString, this.device.name)
+		const serviceIdString = this.calculateServiceIdString(serviceString, service.subtype)
+
+		this.services[serviceIdString] = service
+		this[serviceIdString] = {}
+
+		this.log(`+Service.${serviceIdString}`)
+	}
+
+	setupCharacteristic (
+		serviceIdString,
+		characteristicString,
+		propertyString,
+		updateFunction = this[`update${characteristicString}`],
+		getFunction = this[`get${characteristicString}`],
+		setFunction = this[`set${characteristicString}`]
+	) {
+		const service = this.services[serviceIdString]
+		const characteristic = this.acquireCharacteristic(service, Characteristic[characteristicString])
+		this[serviceIdString][characteristicString] = characteristic
+
+		const property = this.device.props[propertyString]
+
+		if (typeof getFunction === 'function') {
+			getFunction = getFunction.bind(this, property)
+			characteristic.on('get', (callback) => {
+				callback(null, getFunction())
+			})
+		}
+
+		if (typeof setFunction === 'function') {
+			setFunction = setFunction.bind(this, property)
+			characteristic.on('set', (value, callback) => {
+				setFunction(value)
+				callback(null)
+			})
+		}
+
+		if (typeof property === 'number' && typeof updateFunction === 'function') {
+			this.device.on(property, updateFunction.bind(this, characteristic))
+		}
+	}
+
+	setupCharacteristics(serviceIdString, characteristicDefinitions) {
+		// serviceIdString format: "ServiceName_Subtype" (e.g., "Lightbulb_Backlight")
+		const serviceString = this.extractServiceString(serviceIdString)
+		const subtypeString = this.extractSubtypeString(serviceIdString)
+
+		if (this.services[serviceIdString] === undefined) this.setupService(serviceString, subtypeString)
+
+		for (const definition of characteristicDefinitions) {
+			this.setupCharacteristic(serviceIdString, ...definition)
 		}
 	}
 
@@ -312,57 +391,6 @@ class AlmondAccessory {
 
 	logUpdate(propertyString, value, unitsString = '') {
 		this.log(`Updating ${propertyString} for ${this.accessory.displayName} to ${value}${unitsString} [${typeof value}]`)
-	}
-
-	setupService(serviceString) {
-		if (typeof serviceString !== 'string' || serviceString === '') return
-
-		this.log(`+Service.${serviceString}`)
-
-		this.services[serviceString] = this.acquireService(Service[serviceString], this.device.name)
-		this[serviceString] = {}
-	}
-
-	setupCharacteristic (
-		serviceString,
-		characteristicString,
-		propertyString,
-		updateFunction = this[`update${characteristicString}`],
-		getFunction = this[`get${characteristicString}`],
-		setFunction = this[`set${characteristicString}`]
-	) {
-		const service = this.services[serviceString]
-		const characteristic = this.acquireCharacteristic(service, Characteristic[characteristicString])
-		this[serviceString][characteristicString] = characteristic
-
-		const property = this.device.props[propertyString]
-
-		if (typeof getFunction === 'function') {
-			getFunction = getFunction.bind(this, property) // Pass characteristc? Pass property?
-			characteristic.on('get', (callback) => {
-				callback(null, getFunction())
-			})
-		}
-
-		if (typeof setFunction === 'function') {
-			setFunction = setFunction.bind(this, property) // Pass characteristc? Pass property?
-			characteristic.on('set', (value, callback) => {
-				setFunction(value)
-				callback(null)
-			})
-		}
-
-		if (typeof property === 'number' && typeof updateFunction === 'function') {
-			this.device.on(property, updateFunction.bind(this, characteristic)) // Pass property as well?
-		}
-	}
-
-	setupCharacteristics(serviceString, characteristicDefinitions) {
-		if (this.services[serviceString] === undefined) this.setupService(serviceString)
-
-		for (const definition of characteristicDefinitions) {
-			this.setupCharacteristic(serviceString, ...definition)
-		}
 	}
 
 	addBatteryService(device, propBatteryLevel = "Battery", propStatusLowBattery = "Battery") {
