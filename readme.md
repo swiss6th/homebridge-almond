@@ -2,7 +2,7 @@ Almond+ Platform plugin for the amazing [Homebridge](https://github.com/nfarina/
 
 # Installation
 
-1. Install homebridge using: `npm install -g homebridge`
+1. Install Homebridge using: `npm install -g homebridge`
 2. Install this plugin using: `npm install -g swiss6th/homebridge-almond`
 3. Update your configuration file. See the samples below.
 
@@ -23,7 +23,7 @@ Add this to your homebridge `config.json` (updating the host and password):
     ]
 ```
 
-Optionally, you can skip certain devices by their Almond+ device ID, or request that a certain device be setup as a HomeKit Outlet rather than a Switch:
+Optionally, you can skip individual devices by their Almond+ device ID, or request that a certain device be setup as a HomeKit Outlet rather than a Switch:
 
  ```javascript
     "platforms": [
@@ -48,7 +48,7 @@ Optionally, you can skip certain devices by their Almond+ device ID, or request 
     ]
 ```
 
-Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it. Then remove the `"skip"` flag and change your `"setupAs"` preference.
+Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it on restart. Then remove the `"skip"` flag and change your `"setupAs"` preference. Restart again for the change to take effect.
 
 # Supported Sensors
 
@@ -69,7 +69,29 @@ Not all devices are supported in each category, as Almond+ doesn't always interp
 
 # Warnings
 
-Not everything works perfectly. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern ES6 syntax (classes, arrow functions, `const` & `let`, spread, etc.).
+Not everything works perfectly—or even well. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern ES6 syntax (classes, arrow functions, `const` & `let`, spread, etc.).
+
+Note that this effort is a near-complete rewrite of the plugin. As such, it requires my rewrite of the [Almond+ Client](https://github.com/swiss6th/almond-client). Previous versions of the client are not compatible. If you install `homebridge-almond` through `npm` as listed above, you'll automatically get the correct dependencies.
+
+# Known Limitations
+
+- Devices may respond slowly when using a slider control in the Home app. I don't know if it's possible to improve this behavior, as Almond+ sends updates very slowly over the WebSocket, and I made a conscious choice to keep the HomeKit controls responsive. If you have some useful debounce logic, submit a pull request.
+- For combination smoke/carbon-monoxide detectors, only the detection state is reported to HomeKit. Whether the detection is of smoke or of CO is not reported, as this information doesn't appear to be available through the Almond+.
+- Almond Click buttons currently don't report tamper state to HomeKit. HomeKit doesn't currently accept tamper state for programmable buttons.
+
+# Tips
+
+## Running on a Raspberry Pi
+
+Easily install Homebridge on a Raspberry Pi using [oznu's preconfigured Docker container](https://github.com/oznu/docker-homebridge/wiki/Homebridge-on-Raspberry-Pi). This works on any model of Pi and abstracts away the fiddly bits (installing a modern version of Node.js appropriate to the hardware, setting up Homebridge as a service, etc.).
+
+Once you get it up and running, log in to [oznu's handy Web interface](https://github.com/oznu/homebridge-config-ui-x) (e.g., at [homebridge.local:8080](http://homebridge.local:8080)), click the Docker icon in the top-right corner, and choose `Terminal`. There you can install `homebridge-almond` using `npm install -g swiss6th/homebridge-almond`. Do not install this plugin from the `Plugins` tab, as the Web interface doesn't seem to understand installing straight from GitHub.
+
+Make sure your `config.json` is set up as detailed above. You can access it from the `Config` tab of the Web interface.
+
+## Naming Devices
+
+If you add a new device to your Almond+ while `homebridge-almond` is running, make sure to set a meaningful name before confirming the device. This name will be used to identify the device in the logs. As soon as you confirm the device, it will be added to HomeKit (assuming it's a supported device). You can rename the device through HomeKit, and you can rename the device through the Almond+, but the device will only show up in the logs under its original name. "BinarySwitch #24" is a lot less helpful than "Desk Fan".
 
 # Credits
 - Pablo Poo, on whose fork this plugin is based
