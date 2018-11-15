@@ -85,13 +85,17 @@ Note that this effort is a near-complete rewrite of the plugin. As such, it requ
 
 Easily install Homebridge on a Raspberry Pi using [oznu's preconfigured Docker container](https://github.com/oznu/docker-homebridge/wiki/Homebridge-on-Raspberry-Pi). This works on any model of Pi and abstracts away the fiddly bits (installing a modern version of Node.js appropriate to the hardware, setting up Homebridge as a service, etc.).
 
-Once you get it up and running, log in to [oznu's handy Web interface](https://github.com/oznu/homebridge-config-ui-x) (e.g., at [homebridge.local:8080](http://homebridge.local:8080)), click the Docker icon in the top-right corner, and choose `Terminal`. There you can install `homebridge-almond` using `npm install -g swiss6th/homebridge-almond`. Do not install this plugin from the `Plugins` tab, as the Web interface doesn't seem to understand installing straight from GitHub.
+Once you get it up and running, log in to [oznu's handy Web interface](https://github.com/oznu/homebridge-config-ui-x) (e.g., at [homebridge.local:8080](http://homebridge.local:8080)), click the Docker icon in the top-right corner (the whale), and choose Terminal. There you can install `homebridge-almond` using `npm install -g swiss6th/homebridge-almond`. Do not install this plugin from the Plugins tab, as the Web interface doesn't seem to understand installing straight from GitHub.
 
-Make sure your `config.json` is set up as detailed above. You can access it from the `Config` tab of the Web interface.
+Make sure your `config.json` is set up as detailed above. You can access it from the Config tab of the Web interface.
 
 ## Naming Devices
 
 If you add a new device to your Almond+ while `homebridge-almond` is running, make sure to set a meaningful name before confirming the device. This name will be used to identify the device in the logs. As soon as you confirm the device, it will be added to HomeKit (assuming it's a supported device). You can rename the device through HomeKit, and you can rename the device through the Almond+, but the device will only show up in the logs under its original name. "BinarySwitch #24" is a lot less helpful than "Desk Fan".
+
+## Finding Device IDs
+
+If you need to know which Almond+ device a given HomeKit accessory controls, 3D-Touch (or long-press) the accessory in the Home app. Hit the Settings button at the bottom right corner, and then scroll to the bottom of the panel that pops up. The accessory's Serial Number displays the Almond+ device name and ID.
 
 # Credits
 - Pablo Poo, on whose fork this plugin is based

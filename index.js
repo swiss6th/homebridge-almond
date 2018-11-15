@@ -77,7 +77,6 @@ class AlmondPlatform {
 		if (devices && id in devices) {
 			return devices[id][flag]
 		}
-		return undefined
 	}
 
 	buildAlmondAccessory(accessory, device) {
@@ -302,7 +301,7 @@ class AlmondAccessory {
 	}
 
 	extractSubtypeString(serviceIdString) {
-		return serviceIdString.split('_')[1]
+		return serviceIdString.split('_').slice(1).join('_')
 	}
 
 	setupService(serviceString, subtypeString) {
