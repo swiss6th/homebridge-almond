@@ -55,11 +55,12 @@ Note that if you change the `"setupAs"` flag for a device at a later point, you'
 Some devices from each of these categories are supported:
 
 - Binary switches
-- Lightbulbs
+- Multiswitches (2 binary switches in one device)
 - Multilevel switches (as lightbulbs)
+- Continuous fan controllers
+- Lightbulbs
 - Thermostats
 - Garage door openers
-- Continuous fan controllers
 - Smoke detectors
 - Contact sensors
 - Almond Click buttons

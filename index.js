@@ -25,7 +25,7 @@ class AlmondPlatform {
 		this.deviceTypes = this.getDeviceTypes(devicePersonalities)
 		this.accessories = {}
 	
-		this.log("Starting up, config: ", config)
+		this.log("Starting up, config:", config)
 	
 		this.api.on('didFinishLaunching', () => {
 			this.client = new Almond(this.config)
@@ -347,7 +347,10 @@ class AlmondAccessory {
 		}
 
 		if (typeof property === 'number' && typeof updateFunction === 'function') {
-			this.device.on(property, updateFunction.bind(this, characteristic))
+			updateFunction = updateFunction.bind(this, property, characteristic)
+			this.device.on(property, (value) => {
+				updateFunction(value)
+			})
 		}
 	}
 
@@ -367,13 +370,13 @@ class AlmondAccessory {
 		this.accessory.updateReachability(reachable)
 	}
 
-	observeDevice(device) {
-	}
-
 	// To be overridden in subclasses
 	identifyDevice(paired, callback) {
 		this.log(`${this.accessory.displayName} identified`)
 		callback()
+	}
+
+	observeDevice(device) {
 	}
 
 	logServiceCount() {
@@ -382,18 +385,23 @@ class AlmondAccessory {
 	}
 
 	logGet(propertyString, value, unitsString = '') {
-		this.log(`Getting ${propertyString} for ${this.accessory.displayName}... ${value}${unitsString} [${typeof value}]`)
+		this.log(`Getting ${propertyString} for ${this.accessory.displayName}... ${value}${unitsString}`)
 	}
 
 	logSet(propertyString, value, unitsString = '') {
-		this.log(`Setting ${propertyString} for ${this.accessory.displayName} to ${value}${unitsString} [${typeof value}]`)
+		this.log(`Setting ${propertyString} for ${this.accessory.displayName} to ${value}${unitsString}`)
 	}
 
 	logUpdate(propertyString, value, unitsString = '') {
-		this.log(`Updating ${propertyString} for ${this.accessory.displayName} to ${value}${unitsString} [${typeof value}]`)
+		this.log(`Updating ${propertyString} for ${this.accessory.displayName} to ${value}${unitsString}`)
 	}
 
 	addBatteryService(device, propBatteryLevel = "Battery", propStatusLowBattery = "Battery") {
+		// Battery methods may be overridden in subclasses.
+		// Otherwise, they read the standard Battery property of Almond+ devices.
+		// Devices with only a LowBattery property should not need a BatteryService.
+		// Instead, add the StatusLowBattery characteristic.
+
 		this.setupCharacteristics("BatteryService", [
 			["BatteryLevel", propBatteryLevel],
 			["ChargingState"],
@@ -401,10 +409,7 @@ class AlmondAccessory {
 		])
 	}
 
-	// Battery methods may be overridden in subclasses.
-	// Otherwise, they read the standard Battery property of Almond+ devices.
-	// Devices with only a LowBattery property should not need a BatteryService.
-	// Instead, add the StatusLowBattery characteristic and deal with it individually.
+	// Common getters, setters, and updaters (override where necessary)
 
 	getBatteryLevel(property = this.device.props.Battery) {
 		let level = this.device.getProp(property)
@@ -415,7 +420,7 @@ class AlmondAccessory {
 		return level
 	}
 
-	updateBatteryLevel(characteristic, level) {
+	updateBatteryLevel(property, characteristic, level) {
 		if (level >= 0 && level <= 100) {
 			this.logUpdate("battery level", level, "%")
 
@@ -424,7 +429,8 @@ class AlmondAccessory {
 	}
 
 	getStatusLowBattery(property = this.device.props.Battery) {
-		const status = this.device.getProp(property) <= this._LOW_BATTERY_THRESHOLD
+		const value = this.device.getProp(property)
+		const status = (typeof value === 'number' ? value <= this._LOW_BATTERY_THRESHOLD : value)
 			? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
 			: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
 
@@ -433,8 +439,8 @@ class AlmondAccessory {
 		return status
 	}
 
-	updateStatusLowBattery(characteristic, level) {
-		const status = level <= this._LOW_BATTERY_THRESHOLD
+	updateStatusLowBattery(property, characteristic, value) {
+		const status = (typeof value === 'number' ? value <= this._LOW_BATTERY_THRESHOLD : value)
 			? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
 			: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
 
@@ -450,6 +456,46 @@ class AlmondAccessory {
 		this.logGet("charging state", state)
 
 		return state
+	}
+
+	getStatusTampered(property = this.device.props.Tamper) {
+		const status = this.device.getProp(property)
+			? Characteristic.StatusTampered.TAMPERED
+			: Characteristic.StatusTampered.NOT_TAMPERED
+
+		this.logGet("tamper state", status)
+
+		return status
+	}
+
+	updateStatusTampered(property, characteristic, value) {
+		const status = value
+			? Characteristic.StatusTampered.TAMPERED
+			: Characteristic.StatusTampered.NOT_TAMPERED
+
+		this.logUpdate("tamper state", status)
+
+		characteristic.updateValue(status)
+	}
+
+	getOn(property) {
+		let state = this.device.getProp(property)
+	
+		this.logGet("state", state)
+
+		return state
+	}
+
+	setOn(property, state) {
+		this.logSet("state", state)
+
+		this.device.setProp(property, state)
+	}
+
+	updateOn(property, characteristic, state) {
+		this.logUpdate("state", state)
+
+		characteristic.updateValue(state)
 	}
 }
 
@@ -502,7 +548,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 		this.device.setProp(property, newBrightness)
 	}
 
-	updateOn(characteristic, brightness) {
+	updateOn(property, characteristic, brightness) {
 		if (brightness >= 0 && brightness <= 100) {
 			const state = brightness > 0
 
@@ -530,7 +576,7 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 		this.device.setProp(property, brightness)
 	}
 
-	updateBrightness(characteristic, brightness) {
+	updateBrightness(property, characteristic, brightness) {
 		if (brightness > 0 && brightness <= 100) {
 			this.logUpdate("brightness", brightness, "%")
 
@@ -553,26 +599,6 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 		this.logServiceCount()
 	}
 
-	getOn(property) {
-		const state = this.device.getProp(property)
-
-		this.logGet("state", state)
-
-		return state
-	}
-	
-	setOn(property, state) {
-		this.logSet("state", state)
-
-		this.device.setProp(property, state)
-	}
-
-	updateOn(characteristic, state) {
-		this.logUpdate("state", state)
-
-		characteristic.updateValue(state)
-	}
-
 	getBrightness(property) {
 		let brightness = this.device.getProp(property)
 		brightness = Math.round(brightness / 255 * 100)
@@ -588,7 +614,7 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 		this.device.setProp(property, Math.round(brightness / 100 * 255))
 	}
 
-	updateBrightness(characteristic, brightness) {
+	updateBrightness(property, characteristic, brightness) {
 		const newBrightness = Math.round(brightness / 255 * 100)
 
 		this.logUpdate("brightness", newBrightness, "%")
@@ -681,7 +707,7 @@ class AlmondThermostat extends AlmondAccessory {
 		return states[state]
 	}
 
-	updateCurrentHeatingCoolingState(characteristic, state) {
+	updateCurrentHeatingCoolingState(property, characteristic, state) {
 		const states = {
 			"Idle": Characteristic.CurrentHeatingCoolingState.OFF,
 			"Heating": Characteristic.CurrentHeatingCoolingState.HEAT,
@@ -724,7 +750,7 @@ class AlmondThermostat extends AlmondAccessory {
 		this.Thermostat.TargetTemperature.updateValue(targetTemperature)
 	}
 
-	updateTargetHeatingCoolingState(characteristic, state) {
+	updateTargetHeatingCoolingState(property, characteristic, state) {
 		const states = {
 			"Off": Characteristic.TargetHeatingCoolingState.OFF,
 			"Heat": Characteristic.TargetHeatingCoolingState.HEAT,
@@ -750,7 +776,7 @@ class AlmondThermostat extends AlmondAccessory {
 		return temperature
 	}
 	
-	updateCurrentTemperature(characteristic, temperature) {
+	updateCurrentTemperature(property, characteristic, temperature) {
 		temperature = this.toHomekitTemperature(temperature)
 
 		this.logUpdate("current temperature", temperature, "° C")
@@ -802,7 +828,7 @@ class AlmondThermostat extends AlmondAccessory {
 		this.device.setProp(property, unitTypes[units])
 	}
 
-	updateTemperatureDisplayUnits(characteristic, units) {
+	updateTemperatureDisplayUnits(property, characteristic, units) {
 		const unitTypes = {
 			"C": Characteristic.TemperatureDisplayUnits.CELSIUS,
 			"F": Characteristic.TemperatureDisplayUnits.FAHRENHEIT
@@ -822,7 +848,7 @@ class AlmondThermostat extends AlmondAccessory {
 		return humidity
 	}
 
-	updateCurrentRelativeHumidity(characteristic, humidity) {
+	updateCurrentRelativeHumidity(property, characteristic, humidity) {
 		humidity = Math.round(humidity)
 
 		this.logUpdate("current relative humidity", humidity, "%")
@@ -850,7 +876,7 @@ class AlmondThermostat extends AlmondAccessory {
 		}
 	}
 
-	updateHeatingThresholdTemperature(characteristic, temperature) {
+	updateHeatingThresholdTemperature(property, characteristic, temperature) {
 		const heatingTemperature = this.toHomekitTemperature(temperature)
 
 		this.logUpdate("heating threshold temperature", heatingTemperature, "° C")
@@ -883,7 +909,7 @@ class AlmondThermostat extends AlmondAccessory {
 		}
 	}
 
-	updateCoolingThresholdTemperature(characteristic, temperature) {
+	updateCoolingThresholdTemperature(property, characteristic, temperature) {
 		const coolingTemperature = this.toHomekitTemperature(temperature)
 
 		this.logUpdate("cooling threshold temperature", coolingTemperature, "° C")
@@ -910,7 +936,7 @@ class AlmondThermostat extends AlmondAccessory {
 		this.device.setProp(property, state ? "On Low" : "Auto Low")
 	}
 
-	updateOn(characteristic, mode) {
+	updateOn(property, characteristic, mode) {
 		this.logUpdate("fan mode", mode)
 
 		characteristic.updateValue(mode == "On Low")
@@ -931,84 +957,23 @@ class AlmondContactSwitch extends AlmondAccessory {
 	}
 
 	getContactSensorState(property) {
-		let state = this.device.getProp(property)
-		state = Number(state)
-
-		const states = [
-			Characteristic.ContactSensorState.CONTACT_DETECTED,
-			Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-		]
+		const state = this.device.getProp(property)
+			? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+			: Characteristic.ContactSensorState.CONTACT_DETECTED
 
 		this.logGet("contact state", states[state])
 
 		return states[state]
 	}
 
-	updateContactSensorState(characteristic, state) {
-		state = Number(state)
+	updateContactSensorState(property, characteristic, value) {
+		const state = value
+			? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+			: Characteristic.ContactSensorState.CONTACT_DETECTED
 
-		const states = [
-			Characteristic.ContactSensorState.CONTACT_DETECTED,
-			Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-		]
+		this.logUpdate("contact state", state)
 
-		this.logUpdate("contact state", states[state])
-
-		characteristic.updateValue(states[state])
-	}
-
-	getStatusTampered(property) {
-		let state = this.device.getProp(property)
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusTampered.NOT_TAMPERED,
-			Characteristic.StatusTampered.TAMPERED
-		]
-
-		this.logGet("tamper state", states[state])
-
-		return states[state]
-	}
-
-	updateStatusTampered(characteristic, state) {
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusTampered.NOT_TAMPERED,
-			Characteristic.StatusTampered.TAMPERED
-		]
-
-		this.logUpdate("tamper state", states[state])
-
-		characteristic.updateValue(states[state])
-	}
-
-	getStatusLowBattery(property) {
-		let state = this.device.getProp(property)
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-		]
-
-		this.logGet("low battery state", states[state])
-
-		return states[state]
-	}
-
-	updateStatusLowBattery(characteristic, state) {
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-		]
-
-		this.logUpdate("low battery state", states[state])
-
-		characteristic.updateValue(states[state])
+		characteristic.updateValue(state)
 	}
 }
 
@@ -1026,84 +991,23 @@ class AlmondFireSensor extends AlmondAccessory {
 	}
 
 	getSmokeDetected(property) {
-		let state = this.device.getProp(property)
-		state = Number(state)
-
-		const states = [
-			Characteristic.SmokeDetected.SMOKE_NOT_DETECTED,
-			Characteristic.SmokeDetected.SMOKE_DETECTED
-		]
+		const state = this.device.getProp(property)
+			? Characteristic.SmokeDetected.SMOKE_DETECTED
+			: Characteristic.SmokeDetected.SMOKE_NOT_DETECTED
 	
-		this.logGet("smoke detection state", states[state])
+		this.logGet("smoke detection state", state)
 
-		return states[state]
+		return state
 	}
 
-	updateSmokeDetected(characteristic, state) {
-		state = Number(state)
+	updateSmokeDetected(property, characteristic, value) {
+		const state = value
+			? Characteristic.SmokeDetected.SMOKE_DETECTED
+			: Characteristic.SmokeDetected.SMOKE_NOT_DETECTED
 
-		const states = [
-			Characteristic.SmokeDetected.SMOKE_NOT_DETECTED,
-			Characteristic.SmokeDetected.SMOKE_DETECTED
-		]
-	
-		this.logUpdate("smoke detection state", states[state])
+		this.logUpdate("smoke detection state", state)
 
-		characteristic.updateValue(states[state])
-	}
-
-	getStatusTampered(property) {
-		let state = this.device.getProp(property)
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusTampered.NOT_TAMPERED,
-			Characteristic.StatusTampered.TAMPERED
-		]
-
-		this.logGet("tamper state", states[state])
-
-		return states[state]
-	}
-
-	updateStatusTampered(characteristic, state) {
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusTampered.NOT_TAMPERED,
-			Characteristic.StatusTampered.TAMPERED
-		]
-
-		this.logUpdate("tamper state", states[state])
-
-		characteristic.updateValue(states[state])
-	}
-
-	getStatusLowBattery(property) {
-		let state = this.device.getProp(property)
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-		]
-
-		this.logGet("low battery state", states[state])
-
-		return states[state]
-	}
-
-	updateStatusLowBattery(characteristic, state) {
-		state = Number(state)
-
-		const states = [
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-			Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-		]
-
-		this.logUpdate("low battery state", states[state])
-
-		characteristic.updateValue(states[state])
+		characteristic.updateValue(state)
 	}
 }
 
@@ -1121,30 +1025,23 @@ class AlmondSmokeDetector extends AlmondAccessory {
 	}
 
 	getSmokeDetected(property) {
-		let state = this.device.getProp(property) > 0
-		state = Number(state)
-
-		const states = [
-			Characteristic.SmokeDetected.SMOKE_NOT_DETECTED,
-			Characteristic.SmokeDetected.SMOKE_DETECTED
-		]
+		const state = this.device.getProp(property) > 0
+			? Characteristic.SmokeDetected.SMOKE_DETECTED
+			: Characteristic.SmokeDetected.SMOKE_NOT_DETECTED
 	
-		this.logGet("smoke detection state", states[state])
+		this.logGet("smoke detection state", state)
 
-		return states[state]
+		return state
 	}
 
-	updateSmokeDetected(characteristic, state) {
-		state = Number(state > 0)
+	updateSmokeDetected(property, characteristic, value) {
+		const state = value > 0
+			? Characteristic.SmokeDetected.SMOKE_DETECTED
+			: Characteristic.SmokeDetected.SMOKE_NOT_DETECTED
 
-		const states = [
-			Characteristic.SmokeDetected.SMOKE_NOT_DETECTED,
-			Characteristic.SmokeDetected.SMOKE_DETECTED
-		]
+		this.logUpdate("smoke detection state", state)
 
-		this.logUpdate("smoke detection state", states[state])
-
-		characteristic.updateValue(states[state])
+		characteristic.updateValue(state)
 	}
 }
 
@@ -1177,7 +1074,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 		return states[state]
 	}
 
-	updateCurrentDoorState(characteristic, state) {
+	updateCurrentDoorState(property, characteristic, state) {
 		const states = {
 			0: Characteristic.CurrentDoorState.CLOSED,
 			252: Characteristic.CurrentDoorState.CLOSING,
@@ -1227,7 +1124,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 		this.device.setProp(property, states[state])
 	}
 
-	updateTargetDoorState(characteristic, state) {
+	updateTargetDoorState(property, characteristic, state) {
 		let newState
 
 		switch (state) {
@@ -1255,7 +1152,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 		return obstruction
 	}
 
-	updateObstructionDetected(characteristic, state) {
+	updateObstructionDetected(property, characteristic, state) {
 		let newState
 
 		switch (state) {
@@ -1322,7 +1219,7 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 		this.device.setProp(property, newSpeed)
 	}
 
-	updateOn(characteristic, speed) {
+	updateOn(property, characteristic, speed) {
 		if (speed >= 0 && speed <= 100) {
 			const state = speed > 0
 
@@ -1350,7 +1247,7 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 		this.device.setProp(property, speed)
 	}
 
-	updateRotationSpeed(characteristic, speed) {
+	updateRotationSpeed(property, characteristic, speed) {
 		if (speed > 0 && speed <= 100) {
 			this.logUpdate("rotation speed", speed, "%")
 	
@@ -1370,26 +1267,6 @@ class AlmondBinarySwitch extends AlmondAccessory {
 
 		this.logServiceCount()
 	}
-
-	getOn(property) {
-		let state = this.device.getProp(property)
-	
-		this.logGet("state", state)
-
-		return state
-	}
-
-	setOn(property, state) {
-		this.logSet("state", state)
-
-		this.device.setProp(property, state)
-	}
-
-	updateOn(characteristic, state) {
-		this.logUpdate("state", state)
-
-		characteristic.updateValue(state)
-	}
 }
 
 class AlmondOutlet extends AlmondAccessory {
@@ -1404,26 +1281,6 @@ class AlmondOutlet extends AlmondAccessory {
 		this.logServiceCount()
 	}
 
-	getOn(property) {
-		const state = this.device.getProp(property)
-
-		this.logGet("state", state)
-
-		return state
-	}
-
-	setOn(property, state) {
-		this.logSet("state", state)
-	
-		this.device.setProp(this.device.props.SwitchBinary, state)
-	}
-
-	updateOn(characteristic, state) {
-		this.logUpdate("state", state)
-
-		characteristic.updateValue(state)
-	}
-
 	getOutletInUse(property) {
 		const state = this.device.getProp(property)
 
@@ -1432,7 +1289,7 @@ class AlmondOutlet extends AlmondAccessory {
 		return state
 	}
 
-	updateOutletInUse(characteristic, state) {
+	updateOutletInUse(property, characteristic, state) {
 		this.logUpdate("usage state", state)
 
 		characteristic.updateValue(state)
@@ -1465,7 +1322,7 @@ class AlmondClick extends AlmondAccessory {
 		return events[press]
 	}
 
-	updateProgrammableSwitchEvent(characteristic, press) {
+	updateProgrammableSwitchEvent(property, characteristic, press) {
 		this.logUpdate("press", press)
 
 		const events = {
@@ -1476,25 +1333,41 @@ class AlmondClick extends AlmondAccessory {
 
 		characteristic.updateValue(events[press])
 	}
+}
 
-	getStatusLowBattery(property) {
-		const status = this.device.getProp(property)
-			? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-			: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
+class AlmondMultiSwitch extends AlmondAccessory {
+	constructor(log, accessory, device) {
+		super(log, accessory, device)
 
-		this.logGet("low battery state", status)
+		for (const key in device.props) {
+			let property = device.props[key]
 
-		return status
+			this.setupCharacteristics(`Switch_${property}`, [
+				["On", `SwitchBinary${property}`]
+			])
+		}
+
+		this.logServiceCount()
 	}
 
-	updateStatusLowBattery(characteristic, status) {
-		status = status
-			? Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
-			: Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
+	getOn(property) {
+		let state = this.device.getProp(property)
+	
+		this.logGet(`switch ${property} state`, state)
 
-		this.logGet("low battery state", status)
+		return state
+	}
 
-		characteristic.updateValue(status)
+	setOn(property, state) {
+		this.logSet(`switch ${property} state`, state)
+
+		this.device.setProp(property, state)
+	}
+
+	updateOn(property, characteristic, state) {
+		this.logUpdate(`switch ${property} state`, state)
+
+		characteristic.updateValue(state)
 	}
 }
 
@@ -1503,7 +1376,12 @@ class Almondx extends AlmondAccessory {
 	constructor(log, accessory, device) {
 		super(log, accessory, device)
 
+		this.setupCharacteristics("ServiceIdString", [
+			["Characteristic1", "Property1"],
+			["Characteristic2", "Property2"]
+		])
 
+		this.logServiceCount()
 	}
 }
 */
