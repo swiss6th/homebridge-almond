@@ -76,6 +76,7 @@ Note that this effort is a near-complete rewrite of the plugin. As such, it requ
 # Known Limitations
 
 - Devices may respond slowly when using a slider control in the Home app. I don't know if it's possible to improve this behavior, as Almond+ sends updates very slowly over the WebSocket, and I made a conscious choice to keep the HomeKit controls responsive. If you have some useful debounce logic, submit a pull request.
+- Devices with only a SwitchMultilevel property (some dimmers and fan controllers) may default to full power when first toggled on through HomeKit. This happens because these devices use a value of `0` to show an `off` state. When the plugin is first started and reads a value of `0`, it has no idea what the previous `on` value was and simply defaults to `100%`. Once the plugin sees a value other than `0`, that value is cached. That way, the next time the device is turned on, it will return to its previous level.
 - For combination smoke/carbon-monoxide detectors, only the detection state is reported to HomeKit. Whether the detection is of smoke or of CO is not reported, as this information doesn't appear to be available through the Almond+.
 - Almond Click buttons currently don't report tamper state to HomeKit. HomeKit doesn't currently accept tamper state for programmable buttons.
 
@@ -83,7 +84,7 @@ Note that this effort is a near-complete rewrite of the plugin. As such, it requ
 
 ## Running on a Raspberry Pi
 
-Easily install Homebridge on a Raspberry Pi using [oznu's preconfigured Docker container](https://github.com/oznu/docker-homebridge/wiki/Homebridge-on-Raspberry-Pi). This works on any model of Pi and abstracts away the fiddly bits (installing a modern version of Node.js appropriate to the hardware, setting up Homebridge as a service, etc.).
+Easily install Homebridge on a Raspberry Pi using [oznu's preconfigured Docker container](https://github.com/oznu/docker-homebridge/wiki/Homebridge-on-Raspberry-Pi). This works on any model of Pi and takes care of the fiddly bits (installing an appropriate version of Node.js, setting up Homebridge as a service, etc.).
 
 Once you get it up and running, log in to [oznu's handy Web interface](https://github.com/oznu/homebridge-config-ui-x) (e.g., at [homebridge.local:8080](http://homebridge.local:8080)), click the Docker icon in the top-right corner (the whale), and choose Terminal. There you can install `homebridge-almond` using `npm install -g swiss6th/homebridge-almond`. Do not install this plugin from the Plugins tab, as the Web interface doesn't seem to understand installing straight from GitHub.
 
