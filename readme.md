@@ -75,6 +75,7 @@ Note that this effort is a near-complete rewrite of the plugin. As such, it requ
 
 # Known Limitations
 
+- HomeKit has a limit of 100 accessories per bridge (Homebridge instance, in this case). I have not been able to test this limit, as I have less than half that number. If you have a lot of accessories, just be aware of this. The limit applies to the total number of accessories hosted by your Homebridge instance—not just those hosted by this plugin.
 - Devices may respond slowly when using a slider control in the Home app. I don't know if it's possible to improve this behavior, as the Almond+ sends updates very slowly over the WebSocket, and I made a conscious choice to keep the HomeKit controls responsive. If you have some useful debounce logic, submit a pull request.
 - Some dimmers and fan controllers may default to full power when first toggled on through HomeKit. This happens because these devices have only a SwitchMultilevel property and use a value of `0` to show an `off` state. When the plugin is first started and reads a value of `0`, it has no idea what the previous `on` value was and simply defaults to `100%`. Once the plugin sees a value other than `0`, that value is cached. This way, the next time the device is turned on, it will return to its previous level.
 - For combination smoke/carbon-monoxide detectors, only the detection state is reported to HomeKit. Whether the detection is of smoke or of CO is not reported, as this information doesn't appear to be available through the Almond+.
