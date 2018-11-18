@@ -12,40 +12,40 @@ This plugin uses the Almond+ [WebSocket API](https://wiki.securifi.com/index.php
 
 Add this to your homebridge `config.json` (updating the host and password):
 
- ```javascript
-    "platforms": [
-        {
-            "platform": "Almond",
-            "name": "Almond Platform",
-            "host":"10.10.10.254",
-            "password": "frank"
-        }
-    ]
+```javascript
+  "platforms": [
+    {
+      "platform": "Almond",
+      "name": "Almond Platform",
+      "host":"10.10.10.254",
+      "password": "frank"
+    }
+  ]
 ```
 
 Optionally, you can skip individual devices by their Almond+ device ID, or request that a certain device be setup as a HomeKit Outlet rather than a Switch:
 
- ```javascript
-    "platforms": [
-        {
-            "platform": "Almond",
-            "name": "Almond Platform",
-            "host":"10.10.10.254",
-            "password": "frank",
-            "devices": {
-                "10": {
-                    "skip": true
-                },
-                "37": {
-                    "setupAs": "outlet"
-                },
-                "24": {
-                    "skip": false,
-                    "setupAs": "switch"
-                }
-            }
+```javascript
+  "platforms": [
+    {
+      "platform": "Almond",
+      "name": "Almond Platform",
+      "host":"10.10.10.254",
+      "password": "frank",
+      "devices": {
+        "10": {
+          "skip": true
+        },
+        "37": {
+          "setupAs": "outlet"
+        },
+        "24": {
+          "skip": false,
+          "setupAs": "switch"
         }
-    ]
+      }
+    }
+  ]
 ```
 
 Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it on restart. Then remove the `"skip"` flag and change your `"setupAs"` preference. Restart again for the change to take effect.
@@ -87,7 +87,7 @@ Note that this effort is a near-complete rewrite of the plugin. As such, it requ
 
 Easily install Homebridge on a Raspberry Pi using [oznu's preconfigured Docker container](https://github.com/oznu/docker-homebridge/wiki/Homebridge-on-Raspberry-Pi). This works on any model of Pi and takes care of the fiddly bits (installing an appropriate version of Node.js, setting up Homebridge as a service, etc.).
 
-Once you get it up and running, log in to [oznu's handy Web interface](https://github.com/oznu/homebridge-config-ui-x) (e.g., at [homebridge.local:8080](http://homebridge.local:8080)), click the Docker icon in the top-right corner (the whale), and choose Terminal. There you can install `homebridge-almond` using `npm install -g swiss6th/homebridge-almond`. Do not install this plugin from the Plugins tab, as the Web interface doesn't seem to understand installing straight from GitHub.
+Once you get it up and running, log in to [oznu's handy Web interface](https://github.com/oznu/homebridge-config-ui-x) (e.g., at [homebridge.local:8080](http://homebridge.local:8080)), click the Docker icon in the top-right corner (the whale), and choose Terminal. There you can install `homebridge-almond` using `npm install swiss6th/homebridge-almond`. Do not install this plugin from the Plugins tab, as the Web interface doesn't seem to understand installing straight from GitHub.
 
 Make sure your `config.json` is set up as detailed above. You can access it from the Config tab of the Web interface.
 
