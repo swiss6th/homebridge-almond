@@ -24,9 +24,9 @@ class AlmondPlatform {
 
 		this.deviceTypes = this.getDeviceTypes(devicePersonalities)
 		this.accessories = {}
-	
-		this.log("Starting up, config:", config)
-	
+
+		this.log("Starting up. Config:", config)
+
 		this.api.on('didFinishLaunching', () => {
 			this.client = new Almond(this.config)
 			this.client.on("ready", () => {
@@ -64,8 +64,14 @@ class AlmondPlatform {
 	}
 
 	onDeviceRemoved(device) {
-		this.removeAccessory(device)
-		this.logDeviceSummary()
+		for (const key in this.accessories) {
+			let almondAccessory = this.accessories[key]
+			if (almondAccessory.device === device) {
+				this.removeAccessory(almondAccessory.accessory)
+				this.logDeviceSummary()
+				break
+			}
+		}
 	}
 
 	onDeviceUpdated(device) {
@@ -124,6 +130,9 @@ class AlmondPlatform {
 						almondAccessory = new AlmondBinarySwitch(this.log, accessory, device)
 				}
 				break
+			case deviceType.MultiSwitch:
+				almondAccessory = new AlmondMultiSwitch(this.log, accessory, device)
+				break
 			default:
 				if (device.props.SwitchBinary !== undefined) {
 					// Fallback to Switch
@@ -172,15 +181,11 @@ class AlmondPlatform {
 		this.accessories[uuid] = almondAccessory
 	}
 
-	removeAccessory(device) {
-		for (const key in this.accessories) {
-			let almondAccessory = this.accessories[key]
-			if (almondAccessory.device === device) {
-				this.log(`Removing accessory ${almondAccessory.accessory.displayName}`)
-				this.api.unregisterPlatformAccessories("homebridge-platform-almond", "Almond", [almondAccessory.accessory])
-				delete this.accessories[key]
-				return
-			}
+	removeAccessory(accessory) {
+		if (accessory.UUID in this.accessories) {
+			this.log(`Removing accessory ${accessory.displayName}`)
+			this.api.unregisterPlatformAccessories("homebridge-platform-almond", "Almond", [accessory])
+			delete this.accessories[accessory.UUID]
 		}
 	}
 
@@ -210,15 +215,14 @@ class AlmondPlatform {
 	_pruneAccessories() {
 		// After we have got all the devices from the Almond+,
 		// check to see if we have any dead cached devices and kill them.
-		let accessory
 		for (const key in this.accessories) {
-			accessory = this.accessories[key]
+			let accessory = this.accessories[key]
 			this.log(`Checking existance of ${accessory.displayName}:`)
 			if (accessory instanceof AlmondAccessory) {
 				this.log("(+) Device exists.")
 			} else {
-				this.log(`(-) Did not find device for accessory ${accessory.displayName}. Removing it.`)
-				this.removeAccessory(accessory.device)
+				this.log(`(-) Did not find device for accessory ${accessory.displayName}.`)
+				this.removeAccessory(accessory)
 			}
 		}
 	}
@@ -268,13 +272,7 @@ class AlmondAccessory {
 	acquireService(service, subtype, name) {
 		let existingService
 
-		if (subtype) {
-			existingService = this.accessory.getService(subtype)
-		}
-
-		if (existingService === undefined) {
-			existingService = this.accessory.getService(service)
-		}
+		existingService = this.accessory.getService(subtype ? subtype : service)
 
 		if (existingService === undefined) {
 			return this.accessory.addService(service, name, subtype)
@@ -307,7 +305,9 @@ class AlmondAccessory {
 	setupService(serviceString, subtypeString) {
 		if (typeof serviceString !== 'string' || serviceString === '') return
 
-		const service = this.acquireService(Service[serviceString], subtypeString, this.device.name)
+		const serviceName = this.device.name + (subtypeString ? ` ${subtypeString}` : "")
+
+		const service = this.acquireService(Service[serviceString], subtypeString, serviceName)
 		const serviceIdString = this.calculateServiceIdString(serviceString, service.subtype)
 
 		this.services[serviceIdString] = service
@@ -1342,7 +1342,7 @@ class AlmondMultiSwitch extends AlmondAccessory {
 			let property = device.props[key]
 
 			this.setupCharacteristics(`Switch_${property}`, [
-				["On", `SwitchBinary${property}`]
+				["On", key]
 			])
 		}
 
