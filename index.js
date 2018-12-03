@@ -114,6 +114,9 @@ class AlmondPlatform {
 				if (device.manufacturer == "GE" && device.model == "Unknown: type=4944,") {
 					// This is a GE continuous fan controller, which shows up as a siren in the Almond app
 					almondAccessory = new AlmondGenericPsmFan(this.log, accessory, device)
+				} else if (device.manufacturer == "sengled" && device.model == "E11-G13") {
+					// This is a Sengled Element Classic lightbulb
+					almondAccessory = new AlmondMultilevelSwitchOnOff(this.log, accessory, device)
 				}
 				break
 			case deviceType.AlmondClick:
