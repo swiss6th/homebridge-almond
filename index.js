@@ -963,9 +963,9 @@ class AlmondContactSwitch extends AlmondAccessory {
 			? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
 			: Characteristic.ContactSensorState.CONTACT_DETECTED
 
-		this.logGet("contact state", states[state])
+		this.logGet("contact state", state)
 
-		return states[state]
+		return state
 	}
 
 	updateContactSensorState(property, characteristic, value) {
