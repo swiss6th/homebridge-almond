@@ -101,6 +101,9 @@ class AlmondPlatform {
 			case deviceType.ContactSwitch:
 				almondAccessory = new AlmondContactSwitch(this.log, accessory, device)
 				break
+			case deviceType.MotionSensor:
+				almondAccessory = new AlmondMotionSensor(this.log, accessory, device)
+				break
 			case deviceType.FireSensor:
 				almondAccessory = new AlmondFireSensor(this.log, accessory, device)
 				break
@@ -978,6 +981,35 @@ class AlmondContactSwitch extends AlmondAccessory {
 		characteristic.updateValue(state)
 	}
 }
+
+class AlmondMotionSensor extends AlmondAccessory {
+	constructor(log, accessory, device) {
+		super(log, accessory, device)
+
+		this.setupCharacteristics("MotionSensor", [
+			["MotionDetected", "State"],
+			["StatusTampered", "Tamper"],
+			["StatusLowBattery", "LowBattery"]
+		])
+
+		this.logServiceCount()
+	}
+
+	getMotionDetected(property) {
+		const state = this.device.getProp(property)
+
+		this.logGet("motion state", state)
+
+		return state
+	}
+
+	updateMotionDetected(property, characteristic, state) {
+		this.logUpdate("motion state", state)
+
+		characteristic.updateValue(state)
+	}
+}
+
 
 class AlmondFireSensor extends AlmondAccessory {
 	constructor(log, accessory, device) {
