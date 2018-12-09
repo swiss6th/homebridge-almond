@@ -1158,8 +1158,8 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 
 	setTargetDoorState(property, state) {
 		const targetStates = {
-			255: Characteristic.TargetDoorState.OPEN,
-			0: Characteristic.TargetDoorState.CLOSED
+			[Characteristic.TargetDoorState.OPEN]: 255,
+			[Characteristic.TargetDoorState.CLOSED]: 0
 		}
 
 		this.logSet("target door state", state)
@@ -1235,12 +1235,15 @@ class AlmondDoorLock extends AlmondAccessory {
 		let currentState
 
 		switch (value) {
-			case 0:
-				currentState = Characteristic.LockCurrentState.UNSECURED
-				break
 			case 255:
 				currentState = Characteristic.LockCurrentState.SECURED
 				break
+			case 0:
+				currentState = Characteristic.LockCurrentState.UNSECURED
+				break
+			case 17:
+			case 23:
+			case 26:
 			default:
 				currentState = Characteristic.LockCurrentState.UNKNOWN
 		}
@@ -1254,12 +1257,15 @@ class AlmondDoorLock extends AlmondAccessory {
 		let currentState
 
 		switch (value) {
-			case 0:
-				currentState = Characteristic.LockCurrentState.UNSECURED
-				break
 			case 255:
 				currentState = Characteristic.LockCurrentState.SECURED
 				break
+			case 0:
+				currentState = Characteristic.LockCurrentState.UNSECURED
+				break
+			case 17:
+			case 23:
+			case 26:
 			default:
 				currentState = Characteristic.LockCurrentState.UNKNOWN
 		}
@@ -1275,11 +1281,11 @@ class AlmondDoorLock extends AlmondAccessory {
 		let targetState
 
 		switch (value) {
-			case 0:
-				targetState = Characteristic.LockTargetState.UNSECURED
-				break
 			case 255:
 				targetState = Characteristic.LockTargetState.SECURED
+				break
+			case 0:
+				targetState = Characteristic.LockTargetState.UNSECURED
 				break
 			default:
 				// Not sure if this is the best default, but we have to give an answer
@@ -1293,8 +1299,8 @@ class AlmondDoorLock extends AlmondAccessory {
 
 	setLockTargetState(property, state) {
 		const targetStates = {
-			[Characteristic.LockTargetState.UNSECURED]: 0,
-			[Characteristic.LockTargetState.SECURED]: 255
+			[Characteristic.LockTargetState.SECURED]: 255,
+			[Characteristic.LockTargetState.UNSECURED]: 0
 		}
 
 		this.logSet("target lock state", state)
@@ -1304,8 +1310,8 @@ class AlmondDoorLock extends AlmondAccessory {
 
 	updateLockTargetState(property, characteristic, value) {
 		const targetStates = {
-			0: Characteristic.LockTargetState.UNSECURED,
-			255: Characteristic.LockTargetState.SECURED
+			255: Characteristic.LockTargetState.SECURED,
+			0: Characteristic.LockTargetState.UNSECURED
 		}
 
 		const targetState = targetStates[value]
@@ -1339,10 +1345,10 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 
 		switch (value) {
 			case 1:
-				currentState = Characteristic.LockCurrentState.UNSECURED
+				currentState = Characteristic.LockCurrentState.SECURED
 				break
 			case 2:
-				currentState = Characteristic.LockCurrentState.SECURED
+				currentState = Characteristic.LockCurrentState.UNSECURED
 				break
 			case 0:
 			default:
@@ -1359,10 +1365,10 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 
 		switch (value) {
 			case 1:
-				currentState = Characteristic.LockCurrentState.UNSECURED
+				currentState = Characteristic.LockCurrentState.SECURED
 				break
 			case 2:
-				currentState = Characteristic.LockCurrentState.SECURED
+				currentState = Characteristic.LockCurrentState.UNSECURED
 				break
 			case 0:
 			default:
@@ -1381,10 +1387,10 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 
 		switch (value) {
 			case 1:
-				targetState = Characteristic.LockTargetState.UNSECURED
+				targetState = Characteristic.LockTargetState.SECURED
 				break
 			case 2:
-				targetState = Characteristic.LockTargetState.SECURED
+				targetState = Characteristic.LockTargetState.UNSECURED
 				break
 			case 0:
 			default:
@@ -1399,8 +1405,8 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 
 	setLockTargetState(property, state) {
 		const targetStates = {
-			[Characteristic.LockTargetState.UNSECURED]: 1,
-			[Characteristic.LockTargetState.SECURED]: 2
+			[Characteristic.LockTargetState.SECURED]: 1,
+			[Characteristic.LockTargetState.UNSECURED]: 2
 		}
 
 		this.logSet("target lock state", state)
@@ -1410,8 +1416,8 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 
 	updateLockTargetState(property, characteristic, value) {
 		const targetStates = {
-			1: Characteristic.LockTargetState.UNSECURED,
-			2: Characteristic.LockTargetState.SECURED
+			1: Characteristic.LockTargetState.SECURED,
+			2: Characteristic.LockTargetState.UNSECURED
 		}
 
 		const targetState = targetStates[value]
@@ -1423,7 +1429,6 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 		}
 	}
 }
-
 
 class AlmondGenericPsmFan extends AlmondAccessory {
 	constructor(log, accessory, device) {
