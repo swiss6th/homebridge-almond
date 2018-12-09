@@ -1,7 +1,7 @@
 {
   "name": "homebridge-almond",
-  "version": "0.1.8",
-  "description": "Homebridge platform plugin for Almond+",
+  "version": "0.1.9",
+  "description": "Homebridge platform plugin for Securifi Almond routers",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -1,16 +1,16 @@
-Almond+ Platform plugin for the amazing [Homebridge](https://github.com/nfarina/homebridge) project.
+Almond platform plugin for the amazing [Homebridge](https://github.com/nfarina/homebridge) project.
 
 # Installation
 
-1. Install Homebridge using: `npm install -g homebridge`
-2. Install this plugin using: `npm install -g swiss6th/homebridge-almond`
+1. Install Homebridge using `npm install -g homebridge`
+2. Install this plugin using `npm install -g swiss6th/homebridge-almond`
 3. Update your configuration file. See the samples below.
 
 # Configuration
 
-This plugin uses the Almond+ [WebSocket API](https://wiki.securifi.com/index.php/Websockets_Documentation#Devicelist), so you need to be running at least R89 firmware.
+This plugin uses the Almond [WebSocket API](https://wiki.securifi.com/index.php/Websockets_Documentation#Devicelist), so you need to be running at least R89 firmware.
 
-Add this to your homebridge `config.json` (updating the host and password):
+Add the following to your Homebridge `config.json`, updating the host and password.
 
 ```javascript
   "platforms": [
@@ -23,7 +23,7 @@ Add this to your homebridge `config.json` (updating the host and password):
   ]
 ```
 
-Optionally, you can skip individual devices by their Almond+ device ID, or request that a certain device be setup as a HomeKit Outlet rather than a Switch:
+Optionally, you can skip individual devices by their Almond device ID, or request that a certain device be setup as a HomeKit Outlet rather than a Switch:
 
 ```javascript
   "platforms": [
@@ -67,20 +67,22 @@ Some devices from each of these categories are supported:
 - Motion sensors
 - Almond Click buttons
 
-Not all devices are supported in each category, as Almond+ doesn't always interpret devices of the same type in the same way. I can only add support for what I can test.
+Not all devices are supported in each category, as Almond doesn't always interpret devices of the same type in the same way. I can only add support for what I can test.
 
 # Warnings
 
-Not everything works perfectly—or even well. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern ES6 syntax (classes, arrow functions, `const` & `let`, spread, etc.).
+Not everything works perfectly—or even well. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern ES6 syntax (classes, arrow functions, template literals, etc.).
 
-Note that this effort is a near-complete rewrite of the plugin. As such, it requires my rewrite of the [Almond+ Client](https://github.com/swiss6th/almond-client). Previous versions of the client are not compatible. If you install `homebridge-almond` through `npm` as listed above, you'll automatically get the correct dependencies.
+Note that this effort is a near-complete rewrite of the plugin. As such, it requires my rewrite of the [Almond Client](https://github.com/swiss6th/almond-client). Previous versions of the client are not compatible. If you install `homebridge-almond` through `npm` as listed above, you'll automatically get the correct dependencies.
+
+My test device is an Almond+. If you have a different model, such as Almond 2015, Almond 3, or Almond 3S, I have no way to know if the plugin will work for you. Submit an issue or pull request if you find a discrepancy.
 
 # Known Limitations
 
 - HomeKit has a limit of 100 accessories per bridge (Homebridge instance, in this case). I have not been able to test this limit, as I have less than half that number. If you have a lot of accessories, just be aware of this. The limit applies to the total number of accessories hosted by your Homebridge instance—not just those hosted by this plugin.
-- Devices may respond slowly when using a slider control in the Home app. I don't know if it's possible to improve this behavior, as the Almond+ sends updates very slowly over the WebSocket, and I made a conscious choice to keep the HomeKit controls responsive. If you have some useful debounce logic, submit a pull request.
+- Devices may respond slowly when using a slider control in the Home app. I don't know if it's possible to improve this behavior, as the Almond sends updates very slowly over the WebSocket, and I made a conscious choice to keep the HomeKit controls responsive. If you have some useful debounce logic, submit a pull request.
 - Some dimmers and fan controllers may default to full power when first toggled on through HomeKit. This happens because these devices have only a SwitchMultilevel property and use a value of `0` to show an `off` state. When the plugin is first started and reads a value of `0`, it has no idea what the previous `on` value was and simply defaults to `100%`. Once the plugin sees a value other than `0`, that value is cached. This way, the next time the device is turned on, it will return to its previous level.
-- For combination smoke/carbon-monoxide detectors, only the detection state is reported to HomeKit. Whether the detection is of smoke or of CO is not reported, as this information doesn't appear to be available through the Almond+.
+- For combination smoke/carbon-monoxide detectors, only the detection state is reported to HomeKit. Whether the detection is of smoke or of CO is not reported, as this information doesn't appear to be available through the Almond.
 - Almond Click buttons currently don't report tamper state to HomeKit. HomeKit doesn't currently accept tamper state for programmable buttons.
 
 # Tips
@@ -95,11 +97,11 @@ Make sure your `config.json` is set up as detailed above. You can access it from
 
 ## Naming Devices
 
-If you add a new device to your Almond+ while `homebridge-almond` is running, make sure to set a meaningful name before confirming the device. This name will be used to identify the device in the logs. As soon as you confirm the device, it will be added to HomeKit (assuming it's a supported device). You can rename the device through HomeKit, and you can rename the device through the Almond+, but the device will only show up in the logs under its original name. "BinarySwitch #24" is a lot less helpful than "Desk Fan".
+If you add a new device to your Almond while `homebridge-almond` is running, make sure to set a meaningful name before confirming the device. This name will be used to identify the device in the logs. As soon as you confirm the device, it will be added to HomeKit (assuming it's a supported device). You can rename the device through HomeKit, and you can rename the device through the Almond, but the device will only show up in the logs under its original name. "BinarySwitch #24" is a lot less helpful than "Desk Fan".
 
 ## Finding Device IDs
 
-If you need to know which Almond+ device a given HomeKit accessory controls, 3D-Touch (or long-press) the accessory in the Home app. Hit the Settings button at the bottom right corner, and then scroll to the bottom of the panel that pops up. The accessory's Serial Number displays the Almond+ device name and ID.
+If you need to know which Almond device a given HomeKit accessory controls, 3D-Touch (or long-press) the accessory in the Home app. Hit the Settings button at the bottom right corner, and then scroll to the bottom of the panel that pops up. The accessory's Serial Number displays the Almond device name and ID.
 
 # Credits
 - Pablo Poo, on whose fork this plugin is based

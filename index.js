@@ -222,7 +222,7 @@ class AlmondPlatform {
 	}
 
 	_pruneAccessories() {
-		// After we have got all the devices from the Almond+,
+		// After we have got all the devices from the Almond,
 		// check to see if we have any dead cached devices and kill them.
 		for (const key in this.accessories) {
 			let accessory = this.accessories[key]
@@ -249,7 +249,7 @@ class AlmondPlatform {
 	}
 }
 
-// Foundation class for all Almond+ accessories
+// Foundation class for all Almond accessories
 
 class AlmondAccessory {
 	constructor(log, accessory, device) {
@@ -406,7 +406,7 @@ class AlmondAccessory {
 
 	addBatteryService(device, propBatteryLevel = "Battery", propStatusLowBattery = "Battery") {
 		// Battery methods may be overridden in subclasses.
-		// Otherwise, they read the standard Battery property of Almond+ devices.
+		// Otherwise, they read the standard Battery property of Almond devices.
 		// Devices with only a LowBattery property should not need a BatteryService.
 		// Instead, add the StatusLowBattery characteristic.
 
@@ -458,7 +458,7 @@ class AlmondAccessory {
 	}
 
 	getChargingState(property) {
-		// Since no Almond+ devices report charging state, return constant
+		// Since no Almond devices report charging state, return constant
 		const state = Characteristic.ChargingState.NOT_CHARGEABLE
 
 		this.logGet("charging state", state)
@@ -507,7 +507,7 @@ class AlmondAccessory {
 	}
 }
 
-// Almond+ accessory classes
+// Almond accessory classes
 
 class AlmondMultilevelSwitch extends AlmondAccessory {
 	constructor(log, accessory, device) {
@@ -670,7 +670,7 @@ class AlmondThermostat extends AlmondAccessory {
 		return temperature
 	}
 
-	toAlmondTemperature(temperature) { // Typically for values heading to Almond+
+	toAlmondTemperature(temperature) { // Typically for values heading to Almond
 		const units = this.fetchUnits()
 
 		if (units == "F") {
