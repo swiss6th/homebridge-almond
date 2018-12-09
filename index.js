@@ -113,12 +113,15 @@ class AlmondPlatform {
 			case deviceType.GarageDoorOpener:
 				almondAccessory = new AlmondGarageDoorOpener(this.log, accessory, device)
 				break
+			case deviceType.ZigbeeDoorLock:
+				almondAccessory = new AlmondZigbeeDoorLock(this.log, accessory, device)
+				break
 			case deviceType.GenericPSM:
 				if (device.manufacturer == "GE" && device.model == "Unknown: type=4944,") {
 					// This is a GE continuous fan controller, which shows up as a siren in the Almond app
 					almondAccessory = new AlmondGenericPsmFan(this.log, accessory, device)
-				} else if (device.manufacturer == "sengled" && device.model == "E11-G13") {
-					// This is a Sengled Element Classic lightbulb
+				} else if (device.manufacturer == "sengled" && ["E11-G13", "E11-G14", "E12-N14"].includes(device.model)) {
+					// This is a Sengled Element Classic lightbulb (A19 or BR30)
 					almondAccessory = new AlmondMultilevelSwitchOnOff(this.log, accessory, device)
 				}
 				break
@@ -1010,7 +1013,6 @@ class AlmondMotionSensor extends AlmondAccessory {
 	}
 }
 
-
 class AlmondFireSensor extends AlmondAccessory {
 	constructor(log, accessory, device) {
 		super(log, accessory, device)
@@ -1124,6 +1126,7 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 
 	getTargetDoorState(property) {
 		let targetState
+
 		if (this.device._targetDoorState !== undefined) {
 			targetState = this.device._targetDoorState
 		} else {
@@ -1149,32 +1152,33 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 	}
 
 	setTargetDoorState(property, state) {
+		const targetStates = {
+			255: Characteristic.TargetDoorState.OPEN,
+			0: Characteristic.TargetDoorState.CLOSED
+		}
+
 		this.logSet("target door state", state)
 
-		const states = []
-		states[Characteristic.TargetDoorState.OPEN] = 255
-		states[Characteristic.TargetDoorState.CLOSED] = 0
-
-		this.device.setProp(property, states[state])
+		this.device.setProp(property, targetStates[state])
 	}
 
-	updateTargetDoorState(property, characteristic, state) {
-		let newState
+	updateTargetDoorState(property, characteristic, value) {
+		let targetState
 
-		switch (state) {
+		switch (value) {
 			case 0:
 			case 252:
-				newState = Characteristic.TargetDoorState.CLOSED
+				targetState = Characteristic.TargetDoorState.CLOSED
 				break
 			case 254:
 			case 255:
-				newState = Characteristic.TargetDoorState.OPEN
+				targetState = Characteristic.TargetDoorState.OPEN
 		}
 
-		if (newState !== undefined) {
-			this.logUpdate("target door state", newState)
+		if (targetState !== undefined) {
+			this.logUpdate("target door state", targetState)
 
-			characteristic.updateValue(newState)
+			characteristic.updateValue(targetState)
 		}
 	}
 
@@ -1186,22 +1190,128 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 		return obstruction
 	}
 
-	updateObstructionDetected(property, characteristic, state) {
-		let newState
+	updateObstructionDetected(property, characteristic, value) {
+		let obstruction
 
-		switch (state) {
+		switch (value) {
 			case 0:
 			case 255:
-				newState = false
+				obstruction = false
 				break
 			case 253:
-				newState = true
+				obstruction = true
 		}
 
-		if (newState !== undefined) {
-			this.logUpdate("obstruction state", newState)
+		if (obstruction !== undefined) {
+			this.logUpdate("obstruction state", obstruction)
 
-			characteristic.updateValue(newState)
+			characteristic.updateValue(obstruction)
+		}
+	}
+}
+
+class AlmondZigbeeDoorLock extends AlmondAccessory {
+	constructor(log, accessory, device) {
+		super(log, accessory, device)
+
+		this.setupCharacteristics("LockMechanism", [
+			["LockCurrentState", "State"],
+			["LockTargetState", "State"]
+		])
+
+		this.addBatteryService(this.device)
+
+		this.logServiceCount()
+	}
+
+	getLockCurrentState(property) {
+		const value = this.device.getProp(property)
+
+		let currentState
+
+		switch (value) {
+			case 1:
+				currentState = Characteristic.LockCurrentState.UNSECURED
+				break
+			case 2:
+				currentState = Characteristic.LockCurrentState.SECURED
+				break
+			case 0:
+			default:
+				currentState = Characteristic.LockCurrentState.UNKNOWN
+		}
+
+		this.logGet("current lock state", currentState)
+
+		return currentState
+	}
+
+	updateLockCurrentState(property, characteristic, value) {
+		let currentState
+
+		switch (value) {
+			case 1:
+				currentState = Characteristic.LockCurrentState.UNSECURED
+				break
+			case 2:
+				currentState = Characteristic.LockCurrentState.SECURED
+				break
+			case 0:
+			default:
+				currentState = Characteristic.LockCurrentState.UNKNOWN
+		}
+
+		this.logUpdate("current lock state", currentState)
+
+		characteristic.updateValue(currentState)
+	}
+
+	getLockTargetState(property) {
+		const value = this.device.getProp(property)
+
+		let targetState
+
+		switch (value) {
+			case 1:
+				targetState = Characteristic.LockTargetState.UNSECURED
+				break
+			case 2:
+				targetState = Characteristic.LockTargetState.SECURED
+				break
+			case 0:
+			default:
+				// Not sure if this is the best default, but we have to give an answer
+				targetState = Characteristic.LockTargetState.SECURED
+		}
+
+		this.logGet("target lock state", targetState)
+
+		return targetState
+	}
+
+	setLockTargetState(property, state) {
+		const targetStates = {
+			1: Characteristic.LockTargetState.UNSECURED,
+			2: Characteristic.LockTargetState.SECURED
+		}
+
+		this.logSet("target lock state", state)
+
+		this.device.setProp(property, targetStates[state])
+	}
+
+	updateLockTargetState(property, characteristic, value) {
+		const targetStates = {
+			1: Characteristic.LockTargetState.UNSECURED,
+			2: Characteristic.LockTargetState.SECURED
+		}
+
+		const targetState = targetStates[value]
+
+		if (targetState !== undefined) {
+			this.logUpdate("target lock state", targetState)
+
+			characteristic.updateValue(targetState)
 		}
 	}
 }
