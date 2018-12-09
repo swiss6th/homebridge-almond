@@ -1,4 +1,4 @@
-Almond platform plugin for the amazing [Homebridge](https://github.com/nfarina/homebridge) project.
+Almond platform plugin for the amazing [Homebridge](https://github.com/nfarina/homebridge) project. Note that this is not maintained or endorsed by Securifi.
 
 # Installation
 
