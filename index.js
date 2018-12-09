@@ -746,11 +746,12 @@ class AlmondThermostat extends AlmondAccessory {
 	}
 
 	setTargetHeatingCoolingState(property, state) {
-		const states = []
-		states[Characteristic.TargetHeatingCoolingState.OFF] = "Off"
-		states[Characteristic.TargetHeatingCoolingState.HEAT] = "Heat"
-		states[Characteristic.TargetHeatingCoolingState.COOL] = "Cool"
-		states[Characteristic.TargetHeatingCoolingState.AUTO] = "Auto"
+		const states = {
+			[Characteristic.TargetHeatingCoolingState.OFF]: "Off",
+			[Characteristic.TargetHeatingCoolingState.HEAT]: "Heat",
+			[Characteristic.TargetHeatingCoolingState.COOL]: "Cool",
+			[Characteristic.TargetHeatingCoolingState.AUTO]: "Auto"
+		}
 
 		this.logSet("target operating mode", states[state])
 		this.device.setProp(property, states[state])
@@ -829,9 +830,10 @@ class AlmondThermostat extends AlmondAccessory {
 	}
 
 	setTemperatureDisplayUnits(property, units) {
-		const unitTypes = []
-		unitTypes[Characteristic.TemperatureDisplayUnits.CELSIUS] = "C"
-		unitTypes[Characteristic.TemperatureDisplayUnits.FAHRENHEIT] = "F"
+		const unitTypes = {
+			[Characteristic.TemperatureDisplayUnits.CELSIUS]: "C",
+			[Characteristic.TemperatureDisplayUnits.FAHRENHEIT]: "F"
+		}
 
 		this.logSet("temperature display units", unitTypes[units])
 
@@ -1603,7 +1605,7 @@ class AlmondMultiSwitch extends AlmondAccessory {
 
 	getOn(property) {
 		let state = this.device.getProp(property)
-	
+
 		this.logGet(`switch ${property} state`, state)
 
 		return state
