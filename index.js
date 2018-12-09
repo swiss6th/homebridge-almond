@@ -1291,8 +1291,8 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 
 	setLockTargetState(property, state) {
 		const targetStates = {
-			1: Characteristic.LockTargetState.UNSECURED,
-			2: Characteristic.LockTargetState.SECURED
+			[Characteristic.LockTargetState.UNSECURED]: 1,
+			[Characteristic.LockTargetState.SECURED]: 2
 		}
 
 		this.logSet("target lock state", state)
