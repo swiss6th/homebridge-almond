@@ -1215,8 +1215,8 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 		super(log, accessory, device)
 
 		this.setupCharacteristics("LockMechanism", [
-			["LockCurrentState", "State"],
-			["LockTargetState", "State"]
+			["LockCurrentState", "LockState"],
+			["LockTargetState", "LockState"]
 		])
 
 		this.addBatteryService(this.device)
