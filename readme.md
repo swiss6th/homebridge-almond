@@ -61,7 +61,7 @@ Some devices from each of these categories are supported:
 - Lightbulbs
 - Thermostats
 - Garage door openers
-- Zigbee door locks
+- Door locks
 - Smoke detectors
 - Contact sensors
 - Motion sensors
