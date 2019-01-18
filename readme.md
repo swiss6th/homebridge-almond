@@ -58,7 +58,7 @@ Optionally, you can skip individual devices by their Almond device ID, or reques
 
 Only certain Almond devices support the `"setupAs"` flag:
 
-- Binary Switches may be either `"switch"` (default) or `"outlet"`
+- Binary switches may be either `"switch"` (default) or `"outlet"`
 - Almond Click buttons may be either `"button"` (default) or `"doorbell"`
 
 If not specified, the default type is used.
