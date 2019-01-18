@@ -23,7 +23,7 @@ Add the following to your Homebridge `config.json`, updating the host and passwo
   ]
 ```
 
-Optionally, you can skip individual devices by their Almond device ID, or request that a certain device be setup as a HomeKit Outlet rather than a Switch:
+Optionally, you can skip individual devices by their Almond device ID, or request that a certain Almond device be setup as a particular HomeKit type:
 
 ```javascript
   "platforms": [
@@ -42,11 +42,26 @@ Optionally, you can skip individual devices by their Almond device ID, or reques
         "24": {
           "skip": false,
           "setupAs": "switch"
+        },
+        "25": {
+          "setupAs": "button"
+        },
+        "27": {
+          "setupAs": "doorbell"
         }
       }
     }
   ]
 ```
+
+## `"setupAs"` Flag
+
+Only certain Almond devices support the `"setupAs"` flag:
+
+- Binary Switches may be either `"switch"` (default) or `"outlet"`
+- Almond Click buttons may be either `"button"` (default) or `"doorbell"`
+
+If not specified, the default type is used.
 
 Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it on restart. Then remove the `"skip"` flag and change your `"setupAs"` preference. Restart again for the change to take effect.
 

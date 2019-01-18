@@ -129,7 +129,14 @@ class AlmondPlatform {
 				}
 				break
 			case deviceType.AlmondClick:
-				almondAccessory = new AlmondClick(this.log, accessory, device)
+				switch (this.getConfigFlag(device.id, "setupAs")) {
+					case "doorbell":
+						almondAccessory = new AlmondClickDoorbell(this.log, accessory, device)						
+						break
+					case "button":
+					default:
+						almondAccessory = new AlmondClick(this.log, accessory, device)
+				}
 				break
 			case deviceType.BinarySwitch:
 			case deviceType.UnknownOnOffModule:
@@ -1561,6 +1568,44 @@ class AlmondClick extends AlmondAccessory {
 		this.setupCharacteristics("StatelessProgrammableSwitch", [
 			["ProgrammableSwitchEvent", "Press"],
 			["StatusLowBattery", "LowBattery"]
+		])
+
+		this.logServiceCount()
+	}
+
+	getProgrammableSwitchEvent(property) {
+		const press = this.device.getProp(property)
+
+		this.logGet("press", press)
+
+		const events = {
+			3: Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
+			0: Characteristic.ProgrammableSwitchEvent.DOUBLE_PRESS,
+			2: Characteristic.ProgrammableSwitchEvent.LONG_PRESS
+		}
+
+		return events[press]
+	}
+
+	updateProgrammableSwitchEvent(property, characteristic, press) {
+		this.logUpdate("press", press)
+
+		const events = {
+			3: Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS,
+			0: Characteristic.ProgrammableSwitchEvent.DOUBLE_PRESS,
+			2: Characteristic.ProgrammableSwitchEvent.LONG_PRESS
+		}
+
+		characteristic.updateValue(events[press])
+	}
+}
+
+class AlmondClickDoorbell extends AlmondAccessory {
+	constructor(log, accessory, device) {
+		super(log, accessory, device)
+
+		this.setupCharacteristics("Doorbell", [
+			["ProgrammableSwitchEvent", "Press"],
 		])
 
 		this.logServiceCount()
