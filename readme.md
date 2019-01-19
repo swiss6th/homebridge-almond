@@ -79,6 +79,7 @@ Some devices from each of these categories are supported:
 - Door locks
 - Smoke detectors
 - Contact sensors
+- Door sensors
 - Motion sensors
 - Almond Click buttons
 

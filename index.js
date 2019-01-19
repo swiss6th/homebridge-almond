@@ -998,6 +998,40 @@ class AlmondContactSwitch extends AlmondAccessory {
 	}
 }
 
+class AlmondDoorSensor extends AlmondAccessory {
+	constructor(log, accessory, device) {
+		super(log, accessory, device)
+
+		this.setupCharacteristics("ContactSensor", [
+			["ContactSensorState", "SensorBinary"]
+		])
+
+		this.addBatteryService(this.device)
+
+		this.logServiceCount()
+	}
+
+	getContactSensorState(property) {
+		const state = this.device.getProp(property)
+			? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+			: Characteristic.ContactSensorState.CONTACT_DETECTED
+
+		this.logGet("contact state", state)
+
+		return state
+	}
+
+	updateContactSensorState(property, characteristic, value) {
+		const state = value
+			? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+			: Characteristic.ContactSensorState.CONTACT_DETECTED
+
+		this.logUpdate("contact state", state)
+
+		characteristic.updateValue(state)
+	}
+}
+
 class AlmondMotionSensor extends AlmondAccessory {
 	constructor(log, accessory, device) {
 		super(log, accessory, device)
