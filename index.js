@@ -87,6 +87,7 @@ class AlmondPlatform {
 
 	buildAlmondAccessory(accessory, device) {
 		const deviceType = this.deviceTypes
+		const setupAs = this.getConfigFlag(device.id, "setupAs")
 		let almondAccessory
 		switch (device.type) {
 			case deviceType.MultilevelSwitch:
@@ -129,7 +130,7 @@ class AlmondPlatform {
 				}
 				break
 			case deviceType.AlmondClick:
-				switch (this.getConfigFlag(device.id, "setupAs")) {
+				switch (setupAs) {
 					case "doorbell":
 						almondAccessory = new AlmondClickDoorbell(this.log, accessory, device)						
 						break
@@ -140,7 +141,7 @@ class AlmondPlatform {
 				break
 			case deviceType.BinarySwitch:
 			case deviceType.UnknownOnOffModule:
-				switch (this.getConfigFlag(device.id, "setupAs")) {
+				switch (setupAs) {
 					case "outlet":
 						almondAccessory = new AlmondOutlet(this.log, accessory, device)
 						break
