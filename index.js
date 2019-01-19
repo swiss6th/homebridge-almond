@@ -102,6 +102,9 @@ class AlmondPlatform {
 			case deviceType.ContactSwitch:
 				almondAccessory = new AlmondContactSwitch(this.log, accessory, device)
 				break
+			case deviceType.DoorSensor:
+				almondAccessory = new AlmondDoorSensor(this.log, accessory, device)
+				break
 			case deviceType.MotionSensor:
 				almondAccessory = new AlmondMotionSensor(this.log, accessory, device)
 				break
