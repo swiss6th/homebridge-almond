@@ -78,6 +78,13 @@ class AlmondPlatform {
 		this.updateAccessory(device)
 	}
 
+	getConfigFlags(id) {
+		const devices = this.config.devices
+		if (devices && id in devices) {
+			return devices[id]
+		}		
+	}
+
 	getConfigFlag(id, flag) {
 		const devices = this.config.devices
 		if (devices && id in devices) {
@@ -86,84 +93,89 @@ class AlmondPlatform {
 	}
 
 	buildAlmondAccessory(accessory, device) {
-		const deviceType = this.deviceTypes
-		const setupAs = this.getConfigFlag(device.id, "setupAs")
+		const
+			deviceType = this.deviceTypes,
+			flags = this.getConfigFlags(device.id),
+			setupAs = flags ? flags['setupAs'] : undefined
 		let almondAccessory
+
 		switch (device.type) {
 			case deviceType.MultilevelSwitch:
-				almondAccessory = new AlmondMultilevelSwitch(this.log, accessory, device)
+				almondAccessory = AlmondMultilevelSwitch
 				break
 			case deviceType.MultilevelSwitchOnOff:
-				almondAccessory = new AlmondMultilevelSwitchOnOff(this.log, accessory, device)
+				almondAccessory = AlmondMultilevelSwitchOnOff
 				break
 			case deviceType.Thermostat:
-				almondAccessory = new AlmondThermostat(this.log, accessory, device)
+				almondAccessory = AlmondThermostat
 				break
 			case deviceType.ContactSwitch:
-				almondAccessory = new AlmondContactSwitch(this.log, accessory, device)
+				almondAccessory = AlmondContactSwitch
 				break
 			case deviceType.DoorSensor:
-				almondAccessory = new AlmondDoorSensor(this.log, accessory, device)
+				almondAccessory = AlmondDoorSensor
 				break
 			case deviceType.MotionSensor:
-				almondAccessory = new AlmondMotionSensor(this.log, accessory, device)
+				almondAccessory = AlmondMotionSensor
 				break
 			case deviceType.FireSensor:
-				almondAccessory = new AlmondFireSensor(this.log, accessory, device)
+				almondAccessory = AlmondFireSensor
 				break
 			case deviceType.SmokeDetector:
-				almondAccessory = new AlmondSmokeDetector(this.log, accessory, device)
+				almondAccessory = AlmondSmokeDetector
 				break
 			case deviceType.GarageDoorOpener:
-				almondAccessory = new AlmondGarageDoorOpener(this.log, accessory, device)
+				almondAccessory = AlmondGarageDoorOpener
 				break
 			case deviceType.DoorLock:
-				almondAccessory = new AlmondDoorLock(this.log, accessory, device)
+				almondAccessory = AlmondDoorLock
 				break
 			case deviceType.ZigbeeDoorLock:
-				almondAccessory = new AlmondZigbeeDoorLock(this.log, accessory, device)
+				almondAccessory = AlmondZigbeeDoorLock
 				break
 			case deviceType.GenericPSM:
 				if (device.manufacturer == "GE" && device.model == "Unknown: type=4944,") {
 					// This is a GE continuous fan controller, which shows up as a siren in the Almond app
-					almondAccessory = new AlmondGenericPsmFan(this.log, accessory, device)
+					almondAccessory = AlmondGenericPsmFan
 				} else if (device.manufacturer == "sengled" && ["E11-G13", "E11-G14", "E12-N14"].includes(device.model)) {
 					// This is a Sengled Element Classic lightbulb (A19 or BR30)
-					almondAccessory = new AlmondMultilevelSwitchOnOff(this.log, accessory, device)
+					almondAccessory = AlmondMultilevelSwitchOnOff
 				}
 				break
 			case deviceType.AlmondClick:
 				switch (setupAs) {
 					case "doorbell":
-						almondAccessory = new AlmondClickDoorbell(this.log, accessory, device)						
+						almondAccessory = AlmondClickDoorbell
 						break
 					case "button":
 					default:
-						almondAccessory = new AlmondClick(this.log, accessory, device)
+						almondAccessory = AlmondClick
 				}
 				break
 			case deviceType.BinarySwitch:
 			case deviceType.UnknownOnOffModule:
 				switch (setupAs) {
 					case "outlet":
-						almondAccessory = new AlmondOutlet(this.log, accessory, device)
+						almondAccessory = AlmondOutlet
 						break
 					case "switch":
 					default:
-						almondAccessory = new AlmondBinarySwitch(this.log, accessory, device)
+						almondAccessory = AlmondBinarySwitch
 				}
 				break
 			case deviceType.MultiSwitch:
-				almondAccessory = new AlmondMultiSwitch(this.log, accessory, device)
+				almondAccessory = AlmondMultiSwitch
 				break
 			default:
 				if (device.props.SwitchBinary !== undefined) {
 					// Fallback to Switch
-					almondAccessory = new AlmondBinarySwitch(this.log, accessory, device)
+					almondAccessory = AlmondBinarySwitch
 				}
 		}
 
-		return almondAccessory
+		if (almondAccessory !== undefined) {
+			return new almondAccessory(this.log, accessory, device, flags)
+		}
 	}
 
 	addAccessory(device) {
@@ -266,10 +278,11 @@ class AlmondPlatform {
 // Foundation class for all Almond accessories
 
 class AlmondAccessory {
-	constructor(log, accessory, device) {
+	constructor(log, accessory, device, flags) {
+		this.log = log
 		this.accessory = accessory
 		this.device = device
-		this.log = log
+		this.flags = flags
 		this.displayName = this.accessory.displayName
 		this.services = {}
 
@@ -524,8 +537,8 @@ class AlmondAccessory {
 // Almond accessory classes
 
 class AlmondMultilevelSwitch extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		// Set default brightness for when it can't be determined
 		this._DEFAULT_BRIGHTNESS = 100
@@ -610,8 +623,8 @@ class AlmondMultilevelSwitch extends AlmondAccessory {
 }
 
 class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("Lightbulb", [
 			["On", "SwitchBinary"],
@@ -646,8 +659,8 @@ class AlmondMultilevelSwitchOnOff extends AlmondAccessory {
 }
 
 class AlmondThermostat extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("Thermostat", [
 			["CurrentHeatingCoolingState", "OperatingState"],
@@ -968,8 +981,8 @@ class AlmondThermostat extends AlmondAccessory {
 }
 
 class AlmondContactSwitch extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("ContactSensor", [
 			["ContactSensorState", "State"],
@@ -1002,8 +1015,8 @@ class AlmondContactSwitch extends AlmondAccessory {
 }
 
 class AlmondDoorSensor extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("ContactSensor", [
 			["ContactSensorState", "SensorBinary"]
@@ -1036,8 +1049,8 @@ class AlmondDoorSensor extends AlmondAccessory {
 }
 
 class AlmondMotionSensor extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("MotionSensor", [
 			["MotionDetected", "State"],
@@ -1064,8 +1077,8 @@ class AlmondMotionSensor extends AlmondAccessory {
 }
 
 class AlmondFireSensor extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("SmokeSensor", [
 			["SmokeDetected", "State"],
@@ -1098,8 +1111,8 @@ class AlmondFireSensor extends AlmondAccessory {
 }
 
 class AlmondSmokeDetector extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("SmokeSensor", [
 			["SmokeDetected", "Status"],
@@ -1132,8 +1145,8 @@ class AlmondSmokeDetector extends AlmondAccessory {
 }
 
 class AlmondGarageDoorOpener extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("GarageDoorOpener", [
 			["CurrentDoorState", "BarrierOperator"],
@@ -1261,8 +1274,8 @@ class AlmondGarageDoorOpener extends AlmondAccessory {
 }
 
 class AlmondDoorLock extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("LockMechanism", [
 			["LockCurrentState", "LockState"],
@@ -1370,8 +1383,8 @@ class AlmondDoorLock extends AlmondAccessory {
 }
 
 class AlmondZigbeeDoorLock extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("LockMechanism", [
 			["LockCurrentState", "LockState"],
@@ -1476,8 +1489,8 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 }
 
 class AlmondGenericPsmFan extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		// Set default rotation speed for when it can't be determined
 		this._DEFAULT_SPEED = 100
@@ -1561,8 +1574,8 @@ class AlmondGenericPsmFan extends AlmondAccessory {
 }
 
 class AlmondBinarySwitch extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("Switch", [
 			["On", "SwitchBinary"]
@@ -1573,8 +1586,8 @@ class AlmondBinarySwitch extends AlmondAccessory {
 }
 
 class AlmondOutlet extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("Outlet", [
 			["On", "SwitchBinary"],
@@ -1600,8 +1613,8 @@ class AlmondOutlet extends AlmondAccessory {
 }
 
 class AlmondClick extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("StatelessProgrammableSwitch", [
 			["ProgrammableSwitchEvent", "Press"],
@@ -1639,8 +1652,8 @@ class AlmondClick extends AlmondAccessory {
 }
 
 class AlmondClickDoorbell extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("Doorbell", [
 			["ProgrammableSwitchEvent", "Press"],
@@ -1677,11 +1690,13 @@ class AlmondClickDoorbell extends AlmondAccessory {
 }
 
 class AlmondMultiSwitch extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
-		for (const key in device.props) {
-			let property = device.props[key]
+		const properties = this.device.props
+
+		for (const key in properties) {
+			let property = properties[key]
 
 			this.setupCharacteristics(`Switch_${property}`, [
 				["On", key]
@@ -1714,8 +1729,8 @@ class AlmondMultiSwitch extends AlmondAccessory {
 
 /*
 class Almondx extends AlmondAccessory {
-	constructor(log, accessory, device) {
-		super(log, accessory, device)
+	constructor(...args) {
+		super(...args)
 
 		this.setupCharacteristics("ServiceIdString", [
 			["Characteristic1", "Property1"],
