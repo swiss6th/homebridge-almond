@@ -65,7 +65,7 @@ Set the `"skip"` flag to `true` if you want to leave the device out of HomeKit. 
 Certain Almond devices support the `"setupAs"` flag:
 
 - Binary switches may be either `"switch"` (default) or `"outlet"`. Switches may be customized later through the Home app as switches, lights, or fans.
-- Almond Click buttons may be either `"button"` (default) or `"doorbell"`. Buttons may be programmed with up to 3 different actions (for press, double-press, and long-press) but provide no notifications. Doorbells are not programmable but provide notifications (including images if placed in the same room as a HomeKit camera).
+- Almond Click buttons may be either `"button"` (default) or `"doorbell"`. Buttons may be programmed with up to 3 different actions (for press, double-press, and long-press) but provide no notifications. Doorbells are not programmable but do provide notifications (including snapshots if placed in the same room as a HomeKit camera).
 
 If not specified, the default type is used.
 
