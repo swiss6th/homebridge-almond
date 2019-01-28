@@ -1,12 +1,14 @@
+# homebridge-almond
+
 Almond platform plugin for the amazing [Homebridge](https://github.com/nfarina/homebridge) project. Note that this is not maintained or endorsed by Securifi.
 
-# Installation
+## Installation
 
 1. Install Homebridge using `npm install -g homebridge`
 2. Install this plugin using `npm install -g swiss6th/homebridge-almond`
 3. Update your configuration file. See the samples below.
 
-# Configuration
+## Configuration
 
 This plugin uses the Almond [WebSocket API](https://wiki.securifi.com/index.php/Websockets_Documentation#Devicelist), so you need to be running at least R89 firmware.
 
@@ -54,11 +56,11 @@ Optionally, you can add certain flags per device to modify how it is set up:
   ]
 ```
 
-## `"skip"` Flag
+### `"skip"` Flag
 
 Set the `"skip"` flag to `true` if you want to leave the device out of HomeKit. Skipping a previously added device will cause Homebridge to remove it upon restart.
 
-## `"setupAs"` Flag
+### `"setupAs"` Flag
 
 Certain Almond devices support the `"setupAs"` flag:
 
@@ -69,11 +71,11 @@ If not specified, the default type is used.
 
 Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it after a restart. Then remove the `"skip"` flag and change your `"setupAs"` preference. Restart again for the change to take effect.
 
-## `"hideBatteryInfo"` Flag
+### `"hideBatteryInfo"` Flag
 
 Set the `"hideBatteryInfo"` flag to `true` if you don't want the battery percentage reported through HomeKit. This is helpful for devices that inaccurately report a constant battery percentage (like `0`). If you decide to change `"hideBatteryInfo"` at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove the device after a restart. Then remove the `"skip"` flag and change your `"hideBatteryInfo"` preference. Restart again for the change to take effect.
 
-# Supported Sensors
+## Supported Sensors
 
 Some devices from each of these categories are supported:
 
@@ -93,7 +95,7 @@ Some devices from each of these categories are supported:
 
 Not all devices are supported in each category, as Almond doesn't always interpret devices of the same type in the same way. I can only add support for what I can test.
 
-# Warnings
+## Warnings
 
 Not everything works perfectly—or even well. Since I am mainly tailoring this fork to my needs, I'll add more sensors as time (and expertise) permits. Feel free to fork again, or submit pull requests. Be kind, as I'm new at Git (and JavaScript, unfortunately). My preference is for modern ES6 syntax (classes, arrow functions, template literals, etc.).
 
@@ -101,7 +103,7 @@ Note that this effort is a near-complete rewrite of the plugin. As such, it requ
 
 My test device is an Almond+. If you have a different model, such as Almond 2015, Almond 3, or Almond 3S, I have no way to know if the plugin will work for you. Submit an issue or pull request if you find a discrepancy.
 
-# Known Limitations
+## Known Limitations
 
 - HomeKit has a limit of 100 accessories per bridge (Homebridge instance, in this case). I have not been able to test this limit, as I have less than half that number. If you have a lot of accessories, just be aware of this. The limit applies to the total number of accessories hosted by your Homebridge instance—not just those hosted by this plugin.
 - Devices may respond slowly when using a slider control in the Home app. I don't know if it's possible to improve this behavior, as the Almond sends updates very slowly over the WebSocket, and I made a conscious choice to keep the HomeKit controls responsive. If you have some useful debounce logic, submit a pull request.
