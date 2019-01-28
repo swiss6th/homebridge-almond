@@ -111,9 +111,9 @@ My test device is an Almond+. If you have a different model, such as Almond 2015
 - For combination smoke/carbon-monoxide detectors, only the detection state is reported to HomeKit. Whether the detection is of smoke or of CO is not reported, as this information doesn't appear to be available through the Almond.
 - Almond Click buttons currently don't report tamper state to HomeKit. HomeKit doesn't currently accept tamper state for programmable buttons.
 
-# Tips
+## Tips
 
-## Running on a Raspberry Pi
+### Running on a Raspberry Pi
 
 Easily install Homebridge on a Raspberry Pi using [oznu's preconfigured Docker container](https://github.com/oznu/docker-homebridge/wiki/Homebridge-on-Raspberry-Pi). This works on any model of Pi and takes care of the fiddly bits (installing an appropriate version of Node.js, setting up Homebridge as a service, etc.).
 
@@ -121,15 +121,15 @@ Once you get it up and running, log in to [oznu's handy Web interface](https://g
 
 Make sure your `config.json` is set up as detailed above. You can access it from the Config tab of the Web interface.
 
-## Naming Devices
+### Naming Devices
 
 If you add a new device to your Almond while `homebridge-almond` is running, make sure to set a meaningful name before confirming the device. This name will be used to identify the device in the logs. As soon as you confirm the device, it will be added to HomeKit (assuming it's a supported device). You can rename the device through HomeKit, and you can rename the device through the Almond, but the device will only show up in the logs under its original name. "BinarySwitch #24" is a lot less helpful than "Desk Fan".
 
-## Finding Device IDs
+### Finding Device IDs
 
 If you need to know which Almond device a given HomeKit accessory controls, 3D-Touch (or long-press) the accessory in the Home app. Hit the Settings button at the bottom right corner, and then scroll to the bottom of the panel that pops up. The accessory's Serial Number displays the Almond device name and ID.
 
-# Credits
+## Credits
 - Pablo Poo, on whose fork this plugin is based
 - Thomas Purchas, the original creator of the plugin
 - Timon Reinhard, as Purchas based his Almond Client on Reinhard's [work](https://github.com/timonreinhard/wemo-client)
