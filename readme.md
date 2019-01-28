@@ -23,7 +23,7 @@ Add the following to your Homebridge `config.json`, updating the host and passwo
   ]
 ```
 
-Optionally, you can skip individual devices by their Almond device ID, or request that a certain Almond device be setup as a particular HomeKit type:
+Optionally, you can add certain flags per device to modify how it is set up:
 
 ```javascript
   "platforms": [
@@ -44,26 +44,34 @@ Optionally, you can skip individual devices by their Almond device ID, or reques
           "setupAs": "switch"
         },
         "25": {
-          "setupAs": "button"
-        },
-        "27": {
           "setupAs": "doorbell"
+        },
+        "28": {
+          "hideBatteryInfo": true
         }
       }
     }
   ]
 ```
 
+## `"skip"` Flag
+
+Set the `"skip"` flag to `true` if you want to leave the device out of HomeKit. Skipping a previously added device will cause Homebridge to remove it upon restart.
+
 ## `"setupAs"` Flag
 
-Only certain Almond devices support the `"setupAs"` flag:
+Certain Almond devices support the `"setupAs"` flag:
 
-- Binary switches may be either `"switch"` (default) or `"outlet"`
-- Almond Click buttons may be either `"button"` (default) or `"doorbell"`
+- Binary switches may be either `"switch"` (default) or `"outlet"`. Switches may be customized later through the Home app as switches, lights, or fans.
+- Almond Click buttons may be either `"button"` (default) or `"doorbell"`. Buttons may be programmed with up to 3 different actions (for press, double-press, and long-press) but provide no notifications. Doorbells are not programmable but provide notifications (including images if placed in the same room as a HomeKit camera).
 
 If not specified, the default type is used.
 
-Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it on restart. Then remove the `"skip"` flag and change your `"setupAs"` preference. Restart again for the change to take effect.
+Note that if you change the `"setupAs"` flag for a device at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove it after a restart. Then remove the `"skip"` flag and change your `"setupAs"` preference. Restart again for the change to take effect.
+
+## `"hideBatteryInfo"` Flag
+
+Set the `"hideBatteryInfo"` flag to `true` if you don't want the battery percentage reported through HomeKit. This is helpful for devices that inaccurately report a constant battery percentage (like `0`). If you decide to change `"hideBatteryInfo"` at a later point, you'll have to first set `"skip"` to `true` and let Homebridge remove the device after a restart. Then remove the `"skip"` flag and change your `"hideBatteryInfo"` preference. Restart again for the change to take effect.
 
 # Supported Sensors
 

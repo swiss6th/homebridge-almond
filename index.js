@@ -278,7 +278,7 @@ class AlmondPlatform {
 // Foundation class for all Almond accessories
 
 class AlmondAccessory {
-	constructor(log, accessory, device, flags) {
+	constructor(log, accessory, device, flags = {}) {
 		this.log = log
 		this.accessory = accessory
 		this.device = device
@@ -431,11 +431,13 @@ class AlmondAccessory {
 		this.log(`Updating ${propertyString} for ${this.accessory.displayName} to ${value}${unitsString}`)
 	}
 
-	addBatteryService(device, propBatteryLevel = "Battery", propStatusLowBattery = "Battery") {
+	addBatteryService(propBatteryLevel = "Battery", propStatusLowBattery = "Battery") {
 		// Battery methods may be overridden in subclasses.
 		// Otherwise, they read the standard Battery property of Almond devices.
 		// Devices with only a LowBattery property should not need a BatteryService.
 		// Instead, add the StatusLowBattery characteristic.
+
+		if ('hideBatteryInfo' in this.flags && this.flags['hideBatteryInfo'] === true) return
 
 		this.setupCharacteristics("BatteryService", [
 			["BatteryLevel", propBatteryLevel],
@@ -677,7 +679,7 @@ class AlmondThermostat extends AlmondAccessory {
 			["On", "FanMode"]
 		])
 
-		this.addBatteryService(this.device)
+		this.addBatteryService()
 
 		this.logServiceCount()
 	}
@@ -1022,7 +1024,7 @@ class AlmondDoorSensor extends AlmondAccessory {
 			["ContactSensorState", "SensorBinary"]
 		])
 
-		this.addBatteryService(this.device)
+		this.addBatteryService()
 
 		this.logServiceCount()
 	}
@@ -1118,7 +1120,7 @@ class AlmondSmokeDetector extends AlmondAccessory {
 			["SmokeDetected", "Status"],
 		])
 
-		this.addBatteryService(this.device)
+		this.addBatteryService()
 
 		this.logServiceCount()
 	}
@@ -1282,7 +1284,7 @@ class AlmondDoorLock extends AlmondAccessory {
 			["LockTargetState", "LockState"]
 		])
 
-		this.addBatteryService(this.device)
+		this.addBatteryService()
 
 		this.logServiceCount()
 	}
@@ -1391,7 +1393,7 @@ class AlmondZigbeeDoorLock extends AlmondAccessory {
 			["LockTargetState", "LockState"]
 		])
 
-		this.addBatteryService(this.device)
+		this.addBatteryService()
 
 		this.logServiceCount()
 	}
